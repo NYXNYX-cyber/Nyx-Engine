@@ -564,16 +564,346 @@
       font-size: 10px;
       color: var(--text-faint);
     }
+  
+    /* === NYX PROJECT HUB STYLES (UNITY / UNREAL HUB STYLE) === */
+    #project-hub-overlay {
+      position: fixed;
+      inset: 0;
+      background: #0d0f14;
+      z-index: 5000;
+      display: flex;
+    }
+    #project-hub-overlay.hidden {
+      display: none;
+    }
+
+    .hub-sidebar {
+      width: 250px;
+      background: #080a0e;
+      border-right: 1px solid #1a222f;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 20px;
+    }
+
+    .hub-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .hub-brand img { width: 28px; height: 28px; object-fit: contain; }
+    .hub-brand span { font-weight: 800; font-size: 13px; letter-spacing: 1.5px; color: #fff; }
+
+    .hub-nav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hub-nav-item {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.15s ease;
+    }
+    .hub-nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+    .hub-nav-item.active { color: #00f0ff; background: rgba(0, 240, 255, 0.1); }
+
+    .hub-user-box {
+      border-top: 1px solid #1a222f;
+      padding-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hub-user-info { font-size: 12px; color: #fff; font-weight: 600; display: flex; justify-content: space-between; }
+    .hub-slots-tag { font-size: 10px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 2px 6px; border-radius: 4px; }
+    .btn-hub-logout {
+      background: transparent;
+      border: 1px solid #233044;
+      color: #94a3b8;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-hub-logout:hover { color: #f87171; border-color: #f87171; }
+
+    .hub-main {
+      flex: 1;
+      padding: 40px 48px;
+      overflow-y: auto;
+    }
+
+    .hub-section-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .hub-section-sub {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 28px;
+    }
+
+    /* Projects Grid */
+    .hub-projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .hub-project-card {
+      background: #121620;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 170px;
+    }
+    .hub-project-card:hover {
+      border-color: #00f0ff;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .hub-card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .hub-card-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; word-break: break-all; }
+    .hub-card-tag { font-size: 10px; font-weight: 700; color: #00f0ff; background: rgba(0, 240, 255, 0.1); padding: 2px 8px; border-radius: 9999px; }
+    .hub-card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1e293b; padding-top: 12px; }
+    .hub-card-date { font-size: 11px; color: #64748b; }
+    .btn-card-open {
+      background: #00f0ff;
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-card-open:hover { background: #fff; }
+    .btn-card-del {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+    .btn-card-del:hover { color: #f87171; }
+
+    /* Create New Project Form */
+    .template-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    .template-card {
+      background: #121620;
+      border: 2px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .template-card:hover { border-color: #38bdf8; }
+    .template-card.active { border-color: #00f0ff; background: #161c28; box-shadow: 0 0 20px rgba(0, 240, 255, 0.2); }
+    .template-icon { font-size: 28px; margin-bottom: 12px; }
+    .template-name { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+    .template-desc { font-size: 12px; color: #8395a7; line-height: 1.5; }
+
+    .hub-form-group { max-width: 460px; margin-bottom: 24px; }
+    .hub-form-label { display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px; }
+    .hub-form-input {
+      width: 100%;
+      background: #07090d;
+      border: 1px solid #233044;
+      border-radius: 8px;
+      color: #fff;
+      padding: 12px 14px;
+      font-size: 14px;
+      outline: none;
+    }
+    .hub-form-input:focus { border-color: #00f0ff; }
+    .btn-hub-create {
+      background: #00f0ff;
+      color: #000;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+    .btn-hub-create:hover { background: #fff; transform: translateY(-1px); }
+
+    /* Gate Auth Dialog */
+    #hub-gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: #07090d;
+      z-index: 6000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #hub-gate-overlay.hidden { display: none; }
+    .gate-card {
+      width: 380px;
+      background: #10141d;
+      border: 1px solid #1f2b3e;
+      border-radius: 16px;
+      padding: 36px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+    }
+    .gate-brand { text-align: center; margin-bottom: 24px; }
+    .gate-brand img { width: 36px; height: 36px; margin-bottom: 8px; }
+    .gate-brand h3 { font-size: 18px; font-weight: 800; color: #fff; }
+    .gate-slots { font-size: 11px; color: #fbbf24; margin-top: 4px; }
+
   </style>
   <script src="/libs/three.min.js"></script>
 </head>
 <body>
 
+  <!-- === NYX PROJECT HUB & LAUNCHER OVERLAY === -->
+  <div id="project-hub-overlay">
+    <!-- Sidebar -->
+    <aside class="hub-sidebar">
+      <div>
+        <div class="hub-brand">
+          <img src="assets/nyx-emblem.png" alt="Nyx Logo">
+          <span>NYX STUDIO 3D</span>
+        </div>
+        <ul class="hub-nav-menu">
+          <li class="hub-nav-item active" id="hub-tab-recent" onclick="switchHubTab('recent')">
+            <span>📁</span> <span>Projects (Lanjutkan)</span>
+          </li>
+          <li class="hub-nav-item" id="hub-tab-new" onclick="switchHubTab('new')">
+            <span>✨</span> <span>+ New Project (Mulai Nol)</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hub-user-box">
+        <div class="hub-user-info">
+          <span id="hub-username-label">👤 dikazxp</span>
+          <span class="hub-slots-tag" id="hub-slots-badge">Slots: 1/3</span>
+        </div>
+        <button class="btn-hub-logout" onclick="hubLogout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="hub-main">
+      <!-- Section: Recent Projects -->
+      <div id="hub-sec-recent">
+        <h2 class="hub-section-title">Projects</h2>
+        <p class="hub-section-sub">Select an existing project to resume work, or create a new one from scratch.</p>
+
+        <div class="hub-projects-grid" id="hub-projects-container">
+          <!-- Dynamically populated from SQLite -->
+        </div>
+      </div>
+
+      <!-- Section: Create New Project -->
+      <div id="hub-sec-new" style="display: none;">
+        <h2 class="hub-section-title">Create a New Project</h2>
+        <p class="hub-section-sub">Start with a completely blank canvas or choose a pre-configured starter kit.</p>
+
+        <div class="template-selector">
+          <!-- Template 1: Blank 3D -->
+          <div class="template-card active" id="tpl-blank3d" onclick="selectTemplate('blank3d')">
+            <div class="template-icon">📦</div>
+            <div class="template-name">Blank 3D Project</div>
+            <div class="template-desc">Clean slate starting from zero. Infinite grid floor, directional sunlight, camera, and default cube ready to model and simulate.</div>
+          </div>
+
+          <!-- Template 2: Blank 2D -->
+          <div class="template-card" id="tpl-blank2d" onclick="selectTemplate('blank2d')">
+            <div class="template-icon">📐</div>
+            <div class="template-name">Blank 2D Project</div>
+            <div class="template-desc">Pixel-perfect cartesian 2D layout, orthographic camera, sprite canvas, and event-based logic.</div>
+          </div>
+
+          <!-- Template 3: DEEP: BELOW Sample -->
+          <div class="template-card" id="tpl-deepbelow" onclick="selectTemplate('deepbelow')">
+            <div class="template-icon">🚢</div>
+            <div class="template-name">DEEP: BELOW (Sample)</div>
+            <div class="template-desc">Pre-loaded psychological horror prototype. RMS Titanic 3,800m corridor, grandfather clock 11:40, audio, and door logic.</div>
+          </div>
+        </div>
+
+        <div class="hub-form-group">
+          <label class="hub-form-label">Project Name</label>
+          <input type="text" class="hub-form-input" id="hub-new-name" placeholder="My_New_Project" value="New_3D_Project">
+        </div>
+
+        <button class="btn-hub-create" onclick="handleCreateProject()">
+          <span>Create & Launch Studio</span>
+          <span>🚀</span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- === AUTHENTICATION GATE (RESTRICTED TO 3 MEMBERS) === -->
+  <div id="hub-gate-overlay" class="hidden">
+    <div class="gate-card">
+      <div class="gate-brand">
+        <img src="assets/nyx-emblem.png" alt="Nyx Logo">
+        <h3>Nyx Studio Authentication</h3>
+        <div class="gate-slots" id="gate-slots-info">Checking available slots...</div>
+      </div>
+
+      <div style="display: flex; border-bottom: 1px solid #1e293b; margin-bottom: 20px;">
+        <div style="flex:1; text-align:center; padding-bottom:8px; font-weight:700; color:#00f0ff; border-bottom:2px solid #00f0ff; cursor:pointer;" id="gate-tab-login" onclick="setGateMode('login')">Sign In</div>
+        <div style="flex:1; text-align:center; padding-bottom:8px; font-weight:600; color:#64748b; cursor:pointer;" id="gate-tab-reg" onclick="setGateMode('register')">Register</div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:4px;">Username</label>
+        <input type="text" id="gate-username" style="width:100%; background:#07090d; border:1px solid #1e293b; border-radius:6px; color:#fff; padding:10px; font-size:13px;" placeholder="username">
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:4px;">Password</label>
+        <input type="password" id="gate-password" style="width:100%; background:#07090d; border:1px solid #1e293b; border-radius:6px; color:#fff; padding:10px; font-size:13px;" placeholder="••••••••">
+      </div>
+
+      <button id="gate-btn-submit" onclick="handleGateSubmit()" style="width:100%; background:#00f0ff; color:#000; border:none; padding:11px; border-radius:6px; font-weight:800; font-size:12px; cursor:pointer;">Authenticate</button>
+      <div id="gate-error-msg" style="color:#f87171; font-size:11px; margin-top:10px; text-align:center; display:none;"></div>
+    </div>
+  </div>
+
+
   <!-- DESKTOP WINDOW MENU BAR -->
   <div id="menu-bar">
+    <div class="menu-btn" style="color: #00f0ff; font-weight: 800; cursor: pointer; background: rgba(0, 240, 255, 0.1); border-right: 1px solid #323232;" onclick="openProjectHub()">
+      ⊞ Projects Hub
+    </div>
     <div class="menu-btn">
       File
       <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="openProjectHub()">Switch / New Project...</div>
         <div class="dropdown-item" onclick="saveSceneToCloud()">Save Scene (Ctrl+S)</div>
         <div class="dropdown-item" onclick="loadSceneByName('titanic')">Open Scene</div>
         <div class="dropdown-sep"></div>
@@ -876,13 +1206,13 @@
 
         <!-- MESH FILTER & RENDERER -->
         <div class="component-header">
-          <span>Mesh Filter & Renderer</span>
+          <span id="insp-mesh-name">Mesh Filter & Renderer</span>
           <button class="btn-panel-ctrl">⋮</button>
         </div>
         <div class="component-body">
           <div class="row-field">
             <span class="label-field">Mesh</span>
-            <input type="text" class="search-input" value="Clock_1140 (Mesh)" readonly style="color:var(--accent-blue);">
+            <input type="text" class="search-input" value="Box_Geometry (Mesh)" readonly id="insp-mesh-val" style="color:var(--accent-blue);">
           </div>
           <div class="row-field">
             <span class="label-field">Cast Shadows</span>
@@ -890,9 +1220,10 @@
           </div>
         </div>
 
+        <div id="comp-titanic-material">
         <!-- MATERIAL & SHADER COMPONENT -->
         <div class="component-header">
-          <span>Material (M_Titanic_Clock)</span>
+          <span id="insp-mat-name">Material (M_Titanic_Clock)</span>
           <button class="btn-panel-ctrl">⋮</button>
         </div>
         <div class="component-body">
@@ -910,6 +1241,8 @@
           </div>
         </div>
 
+        </div>
+        <div id="comp-titanic-lore">
         <!-- SCRIPT COMPONENT: NARRATIVE & BEHAVIOR -->
         <div class="component-header">
           <span id="script-component-title">Interactive Object (Script)</span>
@@ -933,6 +1266,7 @@
           </div>
         </div>
 
+        </div>
         <button class="strip-btn" style="width:100%; background:#2c3038; color:#fff; padding:6px; margin-top:8px; border:1px solid var(--border-inner);" onclick="saveSceneToCloud()">Save Project to SQLite</button>
       </div>
     </div>
@@ -1162,10 +1496,12 @@
     }
     snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
     const snowParticles = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: 0x93c5fd, size: 0.05, transparent: true, opacity: 0.6 }));
+    snowParticles.name = 'SnowParticles';
     scene.add(snowParticles);
 
     // Flashlight
     const flashlight = new THREE.SpotLight(0xfff5e6, 2.2, 20, Math.PI / 5.5, 0.4, 1);
+    flashlight.name = 'Flashlight';
     camera.add(flashlight);
     const flashTarget = new THREE.Object3D();
     flashTarget.position.set(0, 0, -5);
@@ -1184,23 +1520,24 @@
     const gizmoGroup = new THREE.Group();
     
     // X Arrow (Red)
-    const arrowX = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0xf87171 }));
+    const arrowX = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0xf87171, depthTest: false }));
     arrowX.rotation.z = -Math.PI / 2; arrowX.position.x = 0.5;
     arrowX.userData = { axis: 'x' };
     gizmoGroup.add(arrowX);
 
     // Y Arrow (Green)
-    const arrowY = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x34d399 }));
+    const arrowY = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false }));
     arrowY.position.y = 0.5;
     arrowY.userData = { axis: 'y' };
     gizmoGroup.add(arrowY);
 
     // Z Arrow (Blue)
-    const arrowZ = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    const arrowZ = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false }));
     arrowZ.rotation.x = Math.PI / 2; arrowZ.position.z = 0.5;
     arrowZ.userData = { axis: 'z' };
     gizmoGroup.add(arrowZ);
 
+    gizmoGroup.renderOrder = 9999;
     gizmoGroup.position.copy(currentSelectedObject.position);
     scene.add(gizmoGroup);
 
@@ -1814,12 +2151,15 @@
       }
 
       // Marine Snow Animation
-      const pos = snowGeo.attributes.position.array;
-      for (let i = 1; i < snowCount * 3; i += 3) {
-        pos[i] -= delta * 0.4;
-        if (pos[i] < 0) pos[i] = 8;
+      const spObj = scene.getObjectByName('SnowParticles');
+      if (spObj && spObj.visible) {
+        const pos = snowGeo.attributes.position.array;
+        for (let i = 1; i < snowCount * 3; i += 3) {
+          pos[i] -= delta * 0.4;
+          if (pos[i] < 0) pos[i] = 8;
+        }
+        snowGeo.attributes.position.needsUpdate = true;
       }
-      snowGeo.attributes.position.needsUpdate = true;
 
       renderer.render(scene, camera);
     }
@@ -1833,6 +2173,391 @@
     switchViewportTab('scene');
     loadSceneByName('titanic');
     animate();
+  
+    // ==========================================================
+    // === NYX PROJECT HUB & MULTI-PROJECT MANAGEMENT LOGIC ===
+    // ==========================================================
+
+    let currentProject = null;
+    let selectedTemplate = 'blank3d';
+    let gateMode = 'login';
+
+    async function checkAuthAndInitHub() {
+      const token = localStorage.getItem('nyx_token');
+      const user = localStorage.getItem('nyx_user');
+
+      // Fetch slot status
+      try {
+        const sResp = await fetch('/api/auth/status');
+        if (sResp.ok) {
+          const sData = await sResp.json();
+          const info = `Slots: ${sData.user_count}/${sData.max_users} (${sData.slots_available} Available)`;
+          document.getElementById('hub-slots-badge').textContent = info;
+          document.getElementById('gate-slots-info').textContent = info;
+        }
+      } catch (e) {}
+
+      if (!token || !user) {
+        document.getElementById('hub-gate-overlay').classList.remove('hidden');
+        return;
+      }
+
+      document.getElementById('hub-gate-overlay').classList.add('hidden');
+      document.getElementById('hub-username-label').textContent = `👤 ${user}`;
+
+      // Load user projects
+      await loadUserProjects();
+    }
+
+    function openProjectHub() {
+      document.getElementById('project-hub-overlay').classList.remove('hidden');
+      loadUserProjects();
+    }
+
+    function switchHubTab(tab) {
+      if (tab === 'recent') {
+        document.getElementById('hub-tab-recent').className = 'hub-nav-item active';
+        document.getElementById('hub-tab-new').className = 'hub-nav-item';
+        document.getElementById('hub-sec-recent').style.display = 'block';
+        document.getElementById('hub-sec-new').style.display = 'none';
+        loadUserProjects();
+      } else {
+        document.getElementById('hub-tab-recent').className = 'hub-nav-item';
+        document.getElementById('hub-tab-new').className = 'hub-nav-item active';
+        document.getElementById('hub-sec-recent').style.display = 'none';
+        document.getElementById('hub-sec-new').style.display = 'block';
+      }
+    }
+
+    function selectTemplate(tpl) {
+      selectedTemplate = tpl;
+      document.getElementById('tpl-blank3d').className = (tpl === 'blank3d') ? 'template-card active' : 'template-card';
+      document.getElementById('tpl-blank2d').className = (tpl === 'blank2d') ? 'template-card active' : 'template-card';
+      document.getElementById('tpl-deepbelow').className = (tpl === 'deepbelow') ? 'template-card active' : 'template-card';
+    }
+
+    async function loadUserProjects() {
+      const container = document.getElementById('hub-projects-container');
+      container.innerHTML = '<div style="color:#64748b; font-size:12px;">Loading projects from cloud database...</div>';
+
+      try {
+        const resp = await fetch('/api/projects', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('nyx_token')}` }
+        });
+
+        if (!resp.ok) {
+          container.innerHTML = '<div style="color:#f87171;">Failed to load projects.</div>';
+          return;
+        }
+
+        const projects = await resp.json();
+
+        if (projects.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column: 1 / -1; background:#121620; border:1px dashed #233044; border-radius:12px; padding:36px; text-align:center;">
+              <div style="font-size:28px; margin-bottom:8px;">🚀</div>
+              <h4 style="color:#fff; font-size:15px; margin-bottom:6px;">No Projects Found</h4>
+              <p style="color:#64748b; font-size:12px; margin-bottom:18px;">You don't have any saved projects yet. Start a new project from scratch!</p>
+              <button class="btn-hub-create" onclick="switchHubTab('new')">Create First Project →</button>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = '';
+        projects.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'hub-project-card';
+          const dateStr = new Date(p.updated_at * 1000).toLocaleDateString() + ' ' + new Date(p.updated_at * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+          
+          card.innerHTML = `
+            <div>
+              <div class="hub-card-header">
+                <div class="hub-card-title">${p.name}</div>
+                <span class="hub-card-tag">3D SCENE</span>
+              </div>
+              <div style="color:#64748b; font-size:11px; margin-top:4px;">ID: ${p.id.substring(0, 10)}...</div>
+            </div>
+            <div class="hub-card-footer">
+              <div class="hub-card-date">Updated: ${dateStr}</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn-card-del" onclick="deleteProject('${p.id}')" title="Delete Project">✕</button>
+                <button class="btn-card-open" onclick="openProject('${p.id}', '${p.name}')">Open →</button>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        container.innerHTML = '<div style="color:#f87171;">Database unreachable.</div>';
+      }
+    }
+
+    async function handleCreateProject() {
+      const name = document.getElementById('hub-new-name').value.trim() || 'Untitled_Project';
+      const token = localStorage.getItem('nyx_token');
+
+      const initialData = {
+        name: name,
+        template: selectedTemplate,
+        created_at: Date.now(),
+        objects: []
+      };
+
+      try {
+        const resp = await fetch('/api/projects', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: name,
+            data_json: JSON.stringify(initialData)
+          })
+        });
+
+        if (resp.ok) {
+          const p = await resp.json();
+          openProject(p.id, p.name, selectedTemplate);
+        } else {
+          openProject('local_' + Date.now(), name, selectedTemplate);
+        }
+      } catch (e) {
+        alert('Server unreachable.');
+      }
+    }
+
+    async function openProject(id, name, templateOverride) {
+      currentProject = { id, name };
+      document.title = `Nyx Studio 3D — [${name}]`;
+      document.getElementById('project-hub-overlay').classList.add('hidden');
+
+      // Fetch saved project data
+      try {
+        const resp = await fetch(`/api/projects/${id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('nyx_token')}` }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const tpl = templateOverride || data.template || (data.name.includes('DEEP') ? 'deepbelow' : 'blank3d');
+          applySceneTemplate(tpl, data);
+        }
+      } catch (e) {
+        applySceneTemplate(templateOverride || 'blank3d');
+      }
+
+      logConsole(`[ProjectHub] Loaded project "${name}" (${id})`);
+    }
+
+    function applySceneTemplate(tpl, data) {
+      if (tpl === 'blank3d') {
+        buildBlank3DScene();
+      } else if (tpl === 'deepbelow') {
+        buildDeepBelowScene();
+      } else {
+        buildBlank3DScene();
+      }
+    }
+
+    function buildBlank3DScene() {
+      // 1. Hide ALL Titanic corridor, deep-sea snow particles & flashlight
+      if (typeof worldGroup !== 'undefined' && worldGroup) worldGroup.visible = false;
+      const sp = scene.getObjectByName('SnowParticles');
+      if (sp) sp.visible = false;
+      const fl = camera.getObjectByName('Flashlight');
+      if (fl) fl.visible = false;
+      if (typeof clockGroup !== 'undefined' && clockGroup) clockGroup.visible = false;
+      if (typeof corridorGroup !== 'undefined' && corridorGroup) corridorGroup.visible = false;
+      if (typeof submersibleGroup !== 'undefined' && submersibleGroup) submersibleGroup.visible = false;
+      if (typeof anomalyGroup !== 'undefined' && anomalyGroup) anomalyGroup.visible = false;
+
+      // Update scene-switcher-select
+      const sBox = document.getElementById('scene-switcher-select');
+      if (sBox) {
+        const pName = currentProject ? currentProject.name : 'My_Blank_World';
+        sBox.innerHTML = `<option value="blank" selected>${pName} (Active)</option><option value="titanic">02_RMS_Titanic_1912 (Sample)</option>`;
+      }
+
+      // 2. Set clean workstation background & ambient fog
+      scene.background = new THREE.Color(0x181c24);
+      scene.fog = new THREE.FogExp2(0x181c24, 0.012);
+
+      // 3. Ensure clean 3D editor grid
+      let grid = scene.getObjectByName('EditorGrid');
+      if (!grid) {
+        grid = new THREE.GridHelper(80, 80, 0x00f0ff, 0x334155);
+        grid.name = 'EditorGrid';
+        grid.position.y = 0;
+        scene.add(grid);
+      }
+      grid.visible = true;
+
+      // 4. Directional Sun Light
+      let sun = scene.getObjectByName('SunLight');
+      if (!sun) {
+        sun = new THREE.DirectionalLight(0xffffff, 1.2);
+        sun.position.set(15, 30, 15);
+        sun.name = 'SunLight';
+        scene.add(sun);
+      }
+      sun.visible = true;
+
+      // 5. Clean Default Cube (Clean slate object)
+      let cube = scene.getObjectByName('Default_Cube');
+      if (!cube) {
+        const geo = new THREE.BoxGeometry(2, 2, 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.2 });
+        cube = new THREE.Mesh(geo, mat);
+        cube.name = 'Default_Cube';
+        cube.position.set(0, 1, 0);
+        scene.add(cube);
+        editorObjects['Default_Cube'] = cube;
+      }
+      cube.visible = true;
+
+      // Select Default Cube & attach 3D transform gizmo
+      selectObject(cube);
+
+      // Camera reset for blank project
+      camera.position.set(0, 4, 8);
+      camera.lookAt(0, 1, 0);
+
+      // 6. Rebuild Hierarchy UI (Clean Slate List)
+      const tree = document.getElementById('hierarchy-tree-pane');
+      if (tree) {
+        tree.innerHTML = `
+          <div class="tree-node selected" onclick="selectHierarchyItem('Default_Cube')">
+            <span class="icon">📦</span> <span>Default_Cube</span>
+          </div>
+          <div class="tree-node" onclick="selectHierarchyItem('SunLight')">
+            <span class="icon">☀️</span> <span>Directional_SunLight</span>
+          </div>
+          <div class="tree-node">
+            <span class="icon">🎥</span> <span>Main_Camera</span>
+          </div>
+          <div class="tree-node">
+            <span class="icon">🌐</span> <span>Editor_Grid</span>
+          </div>
+        `;
+      }
+
+      // 7. Update Inspector details
+      const iName = document.getElementById('insp-name');
+      if (iName) iName.textContent = 'Default_Cube';
+      const iTag = document.getElementById('insp-tag');
+      if (iTag) iTag.textContent = 'Untagged';
+      const iLore = document.getElementById('comp-titanic-lore');
+      if (iLore) iLore.style.display = 'none';
+      const iMat = document.getElementById('comp-titanic-material');
+      if (iMat) iMat.style.display = 'none';
+      const sceneSel = document.getElementById('scene-selector');
+      if (sceneSel) {
+        sceneSel.innerHTML = `<option value="${currentProject ? currentProject.name : 'Blank_Scene'}">${currentProject ? currentProject.name : 'Blank_3D_Scene'} (Active)</option>`;
+      }
+      if (document.getElementById('insp-pos-x')) document.getElementById('insp-pos-x').value = '0.00';
+      if (document.getElementById('insp-pos-y')) document.getElementById('insp-pos-y').value = '1.00';
+      if (document.getElementById('insp-pos-z')) document.getElementById('insp-pos-z').value = '0.00';
+
+      const sName = document.getElementById('val-scene-name');
+      if (sName) sName.textContent = currentProject ? currentProject.name : 'Blank_3D_Scene';
+      
+      const stat = document.getElementById('status-selected');
+      if (stat) stat.textContent = 'Selected: Default_Cube | Mode: Blank 3D Scene | Zero Assets (Scratch)';
+
+      logConsole('[Scene] Clean 3D workspace active. Ready to build from scratch.');
+    }
+
+    function buildDeepBelowScene() {
+      if (typeof corridorGroup !== 'undefined' && corridorGroup) {
+        corridorGroup.visible = true;
+      }
+      if (typeof clockGroup !== 'undefined' && clockGroup) {
+        clockGroup.visible = true;
+      }
+      const grid = scene.getObjectByName('EditorGrid');
+      if (grid) grid.visible = false;
+
+      document.getElementById('val-scene-name').textContent = 'RMS_Titanic_Corridor';
+      logConsole('[Scene] Loaded DEEP: BELOW (RMS Titanic 3,800m corridor).');
+    }
+
+    async function deleteProject(id) {
+      if (!confirm('Are you sure you want to delete this project?')) return;
+      try {
+        const resp = await fetch(`/api/projects/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('nyx_token')}` }
+        });
+        if (resp.ok) {
+          loadUserProjects();
+        }
+      } catch (e) {
+        alert('Failed to delete project.');
+      }
+    }
+
+    function hubLogout() {
+      localStorage.removeItem('nyx_token');
+      localStorage.removeItem('nyx_user');
+      document.getElementById('project-hub-overlay').classList.add('hidden');
+      document.getElementById('hub-gate-overlay').classList.remove('hidden');
+    }
+
+    // Gate Auth Logic
+    function setGateMode(mode) {
+      gateMode = mode;
+      document.getElementById('gate-tab-login').style.color = (mode === 'login') ? '#00f0ff' : '#64748b';
+      document.getElementById('gate-tab-login').style.borderBottom = (mode === 'login') ? '2px solid #00f0ff' : 'none';
+      document.getElementById('gate-tab-reg').style.color = (mode === 'register') ? '#00f0ff' : '#64748b';
+      document.getElementById('gate-tab-reg').style.borderBottom = (mode === 'register') ? '2px solid #00f0ff' : 'none';
+      document.getElementById('gate-btn-submit').textContent = (mode === 'login') ? 'Authenticate' : 'Create Team Account';
+      document.getElementById('gate-error-msg').style.display = 'none';
+    }
+
+    async function handleGateSubmit() {
+      const u = document.getElementById('gate-username').value.trim();
+      const p = document.getElementById('gate-password').value;
+      const errEl = document.getElementById('gate-error-msg');
+
+      if (!u || !p) {
+        errEl.textContent = 'Please enter username and password.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      const endpoint = (gateMode === 'login') ? '/api/auth/login' : '/api/auth/register';
+
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          errEl.textContent = data.message || (typeof data === 'string' ? data : 'Authentication failed.');
+          errEl.style.display = 'block';
+          return;
+        }
+
+        localStorage.setItem('nyx_token', data.token);
+        localStorage.setItem('nyx_user', data.user.username);
+        checkAuthAndInitHub();
+
+      } catch (e) {
+        errEl.textContent = 'Server connection failed.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    // Run check on load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkAuthAndInitHub();
+    });
+
   </script>
 </body>
 </html>

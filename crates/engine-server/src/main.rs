@@ -136,6 +136,7 @@ async fn main() {
         .route("/api/auth/register", post(api_register))
         .route("/api/auth/login", post(api_login))
         .route("/api/auth/me", get(api_me))
+        .route("/api/auth/status", get(api_auth_status))
         // API Projects
         .route("/api/projects", get(api_list_projects).post(api_save_project))
         .route("/api/projects/:id", get(api_get_project).put(api_update_project).delete(api_delete_project))
@@ -155,6 +156,34 @@ async fn main() {
 
 // === AUTH HANDLERS ===
 
+#[derive(Serialize)]
+struct AuthStatusDto {
+    user_count: i64,
+    max_users: i64,
+    slots_available: i64,
+}
+
+async fn api_auth_status(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<AuthStatusDto>, StatusCode> {
+    let mut db_guard = state.db.lock().await;
+    let conn = db_guard.connection();
+
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let max_users = 3;
+    let slots_available = (max_users - count).max(0);
+
+    Ok(Json(AuthStatusDto {
+        user_count: count,
+        max_users,
+        slots_available,
+    }))
+}
+
+
 async fn api_register(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<AuthPayload>,
@@ -172,6 +201,18 @@ async fn api_register(
 
     let mut db_guard = state.db.lock().await;
     let conn = db_guard.connection();
+
+    // STRICT TEAM LIMIT: Maximum 3 users allowed
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    if count >= 3 {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Registration closed: Early access limit reached (3/3 developer slots filled). Contact administrator for access.".into(),
+        ));
+    }
 
     let res = conn.execute(
         "INSERT INTO users (id, username, password_hash, created_at) VALUES (?1, ?2, ?3, ?4)",
