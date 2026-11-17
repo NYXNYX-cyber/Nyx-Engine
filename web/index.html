@@ -973,6 +973,211 @@
     #drop-zone-overlay.active { display: flex; }
     .drop-hint { font-size: 12px; color: #888888; margin-top: 6px; }
 
+  
+    /* === NYX GENERATORS & WORKSTATION TOOLS MODAL === */
+    .gen-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 18, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 7000;
+      font-family: var(--font-sans);
+    }
+    .gen-modal-backdrop.open { display: flex; }
+
+    .gen-modal-window {
+      width: 780px;
+      height: 520px;
+      background: #1c1c1c;
+      border: 1px solid #333333;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      color: #cccccc;
+    }
+
+    .gen-modal-header {
+      height: 42px;
+      padding: 0 16px;
+      background: #161616;
+      border-bottom: 1px solid #282828;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #e0e0e0;
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+    .gen-modal-header button {
+      background: transparent;
+      border: none;
+      color: #888888;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .gen-modal-header button:hover { color: #ffffff; }
+
+    .gen-modal-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .gen-modal-sidebar {
+      width: 220px;
+      background: #181818;
+      border-right: 1px solid #282828;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .gen-sidebar-btn {
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11.5px;
+      color: #999999;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.1s ease;
+    }
+    .gen-sidebar-btn:hover { background: #242424; color: #ffffff; }
+    .gen-sidebar-btn.active {
+      background: #206095;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .gen-modal-content {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      background: #1e1e1e;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .gen-pane-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .gen-pane-desc {
+      font-size: 11px;
+      color: #777777;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .gen-param-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 11.5px;
+    }
+    .gen-param-label { color: #aaaaaa; }
+    .gen-param-input {
+      background: #141414;
+      border: 1px solid #333333;
+      border-radius: 3px;
+      padding: 5px 8px;
+      color: #ffffff;
+      font-size: 11.5px;
+      width: 140px;
+      outline: none;
+    }
+    .gen-param-input:focus { border-color: #206095; }
+    .gen-param-slider {
+      width: 130px;
+      accent-color: #206095;
+      cursor: pointer;
+    }
+
+    .gen-modal-footer {
+      height: 48px;
+      padding: 0 16px;
+      background: #161616;
+      border-top: 1px solid #282828;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .btn-gen-action {
+      background: #206095;
+      border: 1px solid #1a4f7c;
+      color: #ffffff;
+      padding: 6px 18px;
+      border-radius: 3px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-gen-action:hover { background: #2672b0; }
+
+    /* === RUNTIME INVENTORY HUD === */
+    #gameplay-inventory-hud {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 20, 28, 0.94);
+      border: 1px solid #2e3a4e;
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+      font-family: var(--font-sans);
+    }
+    #gameplay-inventory-hud.open { display: flex; }
+    .inv-slot {
+      width: 58px;
+      height: 58px;
+      background: #10141d;
+      border: 1px solid #232d3d;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: #64748b;
+      text-align: center;
+      padding: 4px;
+    }
+    .inv-slot.filled {
+      border-color: #38bdf8;
+      color: #f1f5f9;
+      background: #16243a;
+    }
+    .inv-slot-icon { font-size: 16px; margin-bottom: 2px; }
+
+    /* === CRT RETRO SCANLINES OVERLAY === */
+    #crt-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+    }
+    #crt-overlay.active { display: block; }
+
   </style>
   <script src="/libs/three.min.js"></script>
   <script src="/libs/GLTFLoader.js"></script>
@@ -1124,6 +1329,50 @@
     </div>
   </div>
 
+  <!-- === NYX GENERATORS & LEVEL TOOLS MODAL WINDOW === -->
+  <div class="gen-modal-backdrop" id="gen-modal">
+    <div class="gen-modal-window">
+      <div class="gen-modal-header">
+        <span id="gen-modal-title">Procedural Generators & Level Tools</span>
+        <button onclick="closeGeneratorModal()">✕</button>
+      </div>
+
+      <div class="gen-modal-body">
+        <!-- Sidebar Navigation -->
+        <div class="gen-modal-sidebar">
+          <div class="gen-sidebar-btn active" id="gen-tab-terrain" onclick="switchGeneratorTab('terrain')">Abyssal Terrain</div>
+          <div class="gen-sidebar-btn" id="gen-tab-corridor" onclick="switchGeneratorTab('corridor')">Modular Corridor</div>
+          <div class="gen-sidebar-btn" id="gen-tab-door" onclick="switchGeneratorTab('door')">Bi-Directional Door</div>
+          <div class="gen-sidebar-btn" id="gen-tab-lore" onclick="switchGeneratorTab('lore')">Lore Document</div>
+          <div class="gen-sidebar-btn" id="gen-tab-audio" onclick="switchGeneratorTab('audio')">Audio Synthesizer</div>
+          <div class="gen-sidebar-btn" id="gen-tab-atmosphere" onclick="switchGeneratorTab('atmosphere')">Retro CRT & FX</div>
+        </div>
+
+        <!-- Dynamic Content Pane -->
+        <div class="gen-modal-content" id="gen-content-pane">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <div class="gen-modal-footer">
+        <button class="btn-unity-cancel" onclick="closeGeneratorModal()">Cancel</button>
+        <button class="btn-gen-action" id="btn-gen-exec" onclick="executeCurrentGenerator()">Generate into Scene</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- === RUNTIME IN-GAME INVENTORY HUD (Toggled with Tab / I) === -->
+  <div id="gameplay-inventory-hud">
+    <div style="font-size:10px; color:#64748b; font-weight:700; margin-right:4px;">BAG [I]</div>
+    <div class="inv-slot" id="inv-slot-0"><div class="inv-slot-icon">▪</div>Empty</div>
+    <div class="inv-slot" id="inv-slot-1"><div class="inv-slot-icon">▪</div>Empty</div>
+    <div class="inv-slot" id="inv-slot-2"><div class="inv-slot-icon">▪</div>Empty</div>
+    <div class="inv-slot" id="inv-slot-3"><div class="inv-slot-icon">▪</div>Empty</div>
+  </div>
+
+  <!-- === CRT SCANLINES & VIGNETTE OVERLAY === -->
+  <div id="crt-overlay"></div>
+
   <!-- DESKTOP WINDOW MENU BAR -->
   <div id="menu-bar">
     <div class="menu-btn" style="color: #00f0ff; font-weight: 800; cursor: pointer; background: rgba(0, 240, 255, 0.1); border-right: 1px solid #323232;" onclick="openProjectHub()">
@@ -1168,7 +1417,28 @@
         <div class="dropdown-item" onclick="createGameObject('Empty')">Create Empty</div>
       </div>
     </div>
-    <div class="menu-btn">Component</div>
+    <div class="menu-btn" style="color:#38bdf8; font-weight:600;">
+      Generators
+      <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="openGeneratorModal('terrain')">Procedural Abyssal Terrain...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('corridor')">Modular Interior Corridor...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('door')">Interactive Door (Bi-Directional)...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('lore')">Lore Document / Examine Item...</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" onclick="openGeneratorModal('audio')">Procedural Audio Synthesizer...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('atmosphere')">Atmosphere & CRT Retro FX...</div>
+      </div>
+    </div>
+    <div class="menu-btn">
+      Component
+      <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="addSelectedComponent('door')">Gameplay > Interactive Door</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('inspect')">Gameplay > Inspectable Lore</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('item')">Gameplay > Pickup Item</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" onclick="addSelectedComponent('rotator')">Script > Auto Rotator</div>
+      </div>
+    </div>
     <div class="menu-btn">Window</div>
     <div class="menu-btn">Help</div>
   </div>
@@ -2162,6 +2432,13 @@
           return;
         }
 
+        // Toggle Inventory Bag [Tab / I]
+        if (k === 'tab' || k === 'i') {
+          e.preventDefault();
+          toggleInventoryHUD();
+          return;
+        }
+
         // Player Flashlight Toggle [F]
         if (k === 'f') {
           e.preventDefault();
@@ -2338,20 +2615,27 @@
       flashlight.visible = !flashlight.visible;
     }
 
-    // GAMEPLAY INTERACTION (DOORS & LORE)
+    // GAMEPLAY INTERACTION (DOORS, LORE & PICKUPS)
     function handleInteraction() {
       if (!activeInteractable) return;
-      if (activeInteractable.userData.type === 'door') {
-        // Toggle door hinge
-        const d = activeInteractable.userData;
-        d.isOpen = !d.isOpen;
-        d.targetAngle = d.isOpen ? (Math.PI / 2.2) : 0;
-        playDoorCreak();
-        logConsole(`[Interact] ${d.isOpen ? 'Opened' : 'Closed'} ${d.name}`);
-      } else if (activeInteractable.userData.type === 'inspect') {
-        document.getElementById('lore-title').textContent = activeInteractable.userData.title;
-        document.getElementById('lore-body').textContent = activeInteractable.userData.text;
+      const u = activeInteractable.userData;
+      if (!u) return;
+
+      if (u.type === 'door') {
+        toggleInteractiveDoor(activeInteractable);
+      } else if (u.type === 'inspect') {
+        document.getElementById('lore-title').textContent = u.title || 'Document';
+        document.getElementById('lore-body').textContent = u.text || '';
         modalEl.style.display = 'block';
+        if (u.giveItem) {
+          addToInventory(u.giveItem, u.title);
+        }
+      } else if (u.type === 'pickup') {
+        addToInventory(u.itemId || u.name, u.name);
+        scene.remove(activeInteractable);
+        delete editorObjects[activeInteractable.name];
+        removeHierarchyItem(activeInteractable.name);
+        activeInteractable = null;
       }
     }
 
@@ -2442,6 +2726,889 @@
     }
 
     
+    
+    // === NYX PROCEDURAL AUDIO SYNTHESIZER (WEB AUDIO API) ===
+    const NyxAudioSynth = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+
+      // 1. Deep Ocean Hull Stress Metal Groan (3,800m pressure)
+      playHullGroan(duration = 2.4) {
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(46, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + duration);
+
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(47.5, t);
+        osc2.frequency.exponentialRampToValueAtTime(31, t + duration);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(90, t);
+        filter.frequency.linearRampToValueAtTime(140, t + duration * 0.4);
+        filter.frequency.exponentialRampToValueAtTime(50, t + duration);
+        filter.Q.value = 4.5;
+
+        gain.gain.setValueAtTime(0.01, t);
+        gain.gain.linearRampToValueAtTime(0.4, t + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+        osc.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc2.start(t);
+        osc.stop(t + duration);
+        osc2.stop(t + duration);
+      },
+
+      // 2. Active Sonar Echo Ping (1200Hz)
+      playSonarPing() {
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1240, t);
+        osc.frequency.exponentialRampToValueAtTime(1180, t + 0.08);
+
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 2.3);
+      },
+
+      // 3. Wooden Door Creak (Friction Modulation)
+      playDoorCreak() {
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const mod = this.ctx.createOscillator();
+        const modGain = this.ctx.createGain();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, t);
+        osc.frequency.linearRampToValueAtTime(140, t + 0.4);
+        osc.frequency.exponentialRampToValueAtTime(90, t + 0.7);
+
+        mod.type = 'sine';
+        mod.frequency.setValueAtTime(24, t);
+        mod.frequency.linearRampToValueAtTime(12, t + 0.7);
+
+        modGain.gain.value = 45;
+        mod.connect(modGain);
+        modGain.connect(osc.frequency);
+
+        filter.type = 'bandpass';
+        filter.frequency.value = 220;
+        filter.Q.value = 3;
+
+        gain.gain.setValueAtTime(0.01, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        mod.start(t);
+        osc.stop(t + 0.8);
+        mod.stop(t + 0.8);
+      },
+
+      // 4. Door Latch Click / Close
+      playDoorLatch() {
+        this.init();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(190, t);
+        osc.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+
+        gain.gain.setValueAtTime(0.45, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 0.15);
+      },
+
+      // 5. Door Locked Rattle Sound
+      playDoorLocked() {
+        this.init();
+        const t = this.ctx.currentTime;
+        for (let i = 0; i < 3; i++) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const st = t + i * 0.07;
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(320 - i * 40, st);
+          gain.gain.setValueAtTime(0.2, st);
+          gain.gain.exponentialRampToValueAtTime(0.001, st + 0.05);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(st);
+          osc.stop(st + 0.06);
+        }
+      },
+
+      // 6. Item Pickup Chime
+      playItemPickup() {
+        this.init();
+        const t = this.ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const st = t + idx * 0.06;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, st);
+          gain.gain.setValueAtTime(0.25, st);
+          gain.gain.exponentialRampToValueAtTime(0.001, st + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(st);
+          osc.stop(st + 0.4);
+        });
+      }
+    };
+
+    // Override old audio functions to use procedural synth
+    function playDoorCreak() { NyxAudioSynth.playDoorCreak(); }
+    function playDoorLatchSound() { NyxAudioSynth.playDoorLatch(); }
+    function playDoorLockedSound() { NyxAudioSynth.playDoorLocked(); }
+
+    // === RUNTIME INVENTORY SYSTEM ===
+    const playerInventory = ['B52_Key']; // Start with Stateroom key for testing!
+
+    function updateInventoryHUD() {
+      const slots = [0, 1, 2, 3];
+      slots.forEach(i => {
+        const el = document.getElementById(`inv-slot-${i}`);
+        if (!el) return;
+        if (playerInventory[i]) {
+          const itemName = playerInventory[i];
+          el.className = 'inv-slot filled';
+          let icon = '🗝️';
+          if (itemName.includes('Battery')) icon = '⚡';
+          else if (itemName.includes('Tape') || itemName.includes('Log')) icon = '📼';
+          else if (itemName.includes('Letter')) icon = '📜';
+          el.innerHTML = `<div class="inv-slot-icon">${icon}</div><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">${itemName}</span>`;
+        } else {
+          el.className = 'inv-slot';
+          el.innerHTML = '<div class="inv-slot-icon">▪</div>Empty';
+        }
+      });
+    }
+
+    function addToInventory(itemId, title) {
+      if (!playerInventory.includes(itemId)) {
+        playerInventory.push(itemId);
+        NyxAudioSynth.playItemPickup();
+        showEditorNotification(`Picked up: ${title || itemId}`);
+        logConsole(`[Inventory] Collected item: ${itemId}`);
+        updateInventoryHUD();
+      }
+    }
+
+    function toggleInventoryHUD() {
+      const hud = document.getElementById('gameplay-inventory-hud');
+      if (!hud) return;
+      hud.classList.toggle('open');
+      updateInventoryHUD();
+    }
+
+    // === REVERSIBLE (BI-DIRECTIONAL) INTERACTIVE DOOR LOGIC ===
+    function toggleInteractiveDoor(doorRoot, forcedDirection) {
+      const d = doorRoot.userData;
+      if (!d) return;
+
+      // Check Locked State
+      if (d.isLocked) {
+        if (d.requiredKey && playerInventory.includes(d.requiredKey)) {
+          d.isLocked = false;
+          showEditorNotification(`Unlocked ${d.name} using ${d.requiredKey}`);
+          NyxAudioSynth.playDoorLatch();
+        } else {
+          NyxAudioSynth.playDoorLocked();
+          showEditorNotification(`Locked! Requires ${d.requiredKey || 'Key'}`);
+          logConsole(`[Door] ${d.name} is locked.`);
+          return;
+        }
+      }
+
+      d.isOpen = !d.isOpen;
+
+      if (d.isOpen) {
+        // Bi-directional ("bolak-balik") swing angle calculation
+        let swingDirection = 1.0;
+
+        if (forcedDirection !== undefined) {
+          swingDirection = forcedDirection;
+        } else if (typeof camera !== 'undefined') {
+          // Compare player camera position to door world position
+          const doorWorldPos = new THREE.Vector3();
+          doorRoot.getWorldPosition(doorWorldPos);
+          const relPos = camera.position.clone().sub(doorWorldPos);
+
+          // If player is in front (relPos.z > 0), swing inward (+); if behind (relPos.z < 0), swing outward (-)
+          swingDirection = (relPos.z < 0) ? -1.0 : 1.0;
+
+          if (d.hingeSide === 'right') swingDirection *= -1.0;
+        }
+
+        const maxAngle = (d.maxAngle || (Math.PI / 2.15)) * swingDirection;
+        d.targetAngle = maxAngle;
+        playDoorCreak();
+        logConsole(`[Door] Opened ${d.name} (Swing: ${(maxAngle * 180 / Math.PI).toFixed(1)}°)`);
+      } else {
+        d.targetAngle = 0.0;
+        playDoorLatchSound();
+        logConsole(`[Door] Closed ${d.name}`);
+      }
+    }
+
+    // === GENERATORS WORKSTATION MODAL LOGIC ===
+    let currentGeneratorTab = 'terrain';
+
+    function openGeneratorModal(tab) {
+      currentGeneratorTab = tab || 'terrain';
+      document.getElementById('gen-modal').classList.add('open');
+      switchGeneratorTab(currentGeneratorTab);
+    }
+
+    function closeGeneratorModal() {
+      document.getElementById('gen-modal').classList.remove('open');
+    }
+
+    function switchGeneratorTab(tab) {
+      currentGeneratorTab = tab;
+      document.querySelectorAll('.gen-sidebar-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`gen-tab-${tab}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const pane = document.getElementById('gen-content-pane');
+      const execBtn = document.getElementById('btn-gen-exec');
+
+      if (tab === 'terrain') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Procedural Abyssal Seabed Terrain</div>
+            <div class="gen-pane-desc">Generates a dynamic 3D seabed heightmap with multi-octave harmonic noise, continental slope trenches, and deep sediment silt texturing.</div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Width (Meters):</span>
+              <input type="number" class="gen-param-input" id="gen-t-width" value="80">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Length (Meters):</span>
+              <input type="number" class="gen-param-input" id="gen-t-length" value="80">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Subdivisions (Resolution):</span>
+              <input type="number" class="gen-param-input" id="gen-t-segs" value="64">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Height Scale (Mound Height):</span>
+              <input type="range" class="gen-param-slider" id="gen-t-scale" min="1" max="20" value="6" oninput="this.nextElementSibling.textContent=this.value+'m'">
+              <span style="font-size:11px; color:#38bdf8; width:30px;">6m</span>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Abyssal Trench Depth:</span>
+              <input type="range" class="gen-param-slider" id="gen-t-trench" min="0" max="30" value="12" oninput="this.nextElementSibling.textContent=this.value+'m'">
+              <span style="font-size:11px; color:#38bdf8; width:30px;">12m</span>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Sediment Material Preset:</span>
+              <select class="gen-param-input" id="gen-t-mat">
+                <option value="silt">Abyssal Oceanic Silt (Cold Slate)</option>
+                <option value="basalt">Basalt Volcanic Trench (Obsidian)</option>
+                <option value="mud">Deep Sediment Mud (Dark Mud)</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666;">Generates a unified collision mesh directly into the active scene.</div>
+        `;
+        execBtn.textContent = 'Generate Seabed into Scene';
+      } else if (tab === 'corridor') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Modular Interior Corridor Generator</div>
+            <div class="gen-pane-desc">Builds customizable hallway segments with wainscot walls, floor runners, ceiling beams, doorways, and gaslight sconces.</div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Length (Segments):</span>
+              <input type="number" class="gen-param-input" id="gen-c-segs" value="4" min="1" max="12">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Corridor Width:</span>
+              <input type="number" class="gen-param-input" id="gen-c-width" value="3.2" step="0.2">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Corridor Height:</span>
+              <input type="number" class="gen-param-input" id="gen-c-height" value="2.8" step="0.1">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Architectural Theme:</span>
+              <select class="gen-param-input" id="gen-c-theme">
+                <option value="titanic">RMS Titanic 1912 (Mahogany & Cream)</option>
+                <option value="submersible">Deep Submersible (Industrial Steel Bulkhead)</option>
+                <option value="derelict">Derelict Station (Rusted Metal & Saltwater)</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Doorway Openings:</span>
+              <select class="gen-param-input" id="gen-c-doors">
+                <option value="both">Both Walls (Left & Right)</option>
+                <option value="left">Left Wall Only</option>
+                <option value="right">Right Wall Only</option>
+                <option value="none">None (Continuous Hallway)</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Spawn Interactive Doors:</span>
+              <input type="checkbox" id="gen-c-door-spawn" checked style="accent-color:#206095;">
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666;">Instantiates modular level geometry with collision bounds.</div>
+        `;
+        execBtn.textContent = 'Build Corridor into Scene';
+      } else if (tab === 'door') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Bi-Directional Interactive Door Creator</div>
+            <div class="gen-pane-desc">Creates a modular interactive swinging door with realistic hinge pivot, bi-directional swing physics, wood creak audio, and key locking.</div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Door Identifier Name:</span>
+              <input type="text" class="gen-param-input" id="gen-d-name" value="Stateroom_Door_B53">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Hinge Placement:</span>
+              <select class="gen-param-input" id="gen-d-hinge">
+                <option value="left">Left Hinge</option>
+                <option value="right">Right Hinge</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Bi-Directional Swing ("Bolak-Balik"):</span>
+              <input type="checkbox" id="gen-d-bidir" checked style="accent-color:#206095;">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Locked by Default:</span>
+              <input type="checkbox" id="gen-d-locked" style="accent-color:#206095;">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Required Key Item ID:</span>
+              <input type="text" class="gen-param-input" id="gen-d-key" value="B52_Key">
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666;">Pressing [E] or clicking during playtest smoothly swings the door away from the player.</div>
+        `;
+        execBtn.textContent = 'Create Door in Scene';
+      } else if (tab === 'lore') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Lore Document & Pickup Item Creator</div>
+            <div class="gen-pane-desc">Creates inspectable 3D letters, telegrams, logbooks, or key items that open parchment modals during exploration.</div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Document Title:</span>
+              <input type="text" class="gen-param-input" id="gen-l-title" value="Letter from Passenger B52">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Item Type:</span>
+              <select class="gen-param-input" id="gen-l-type">
+                <option value="letter">Vintage Handwritten Letter (1912)</option>
+                <option value="telegram">Marconi Wireless Telegram</option>
+                <option value="logbook">Submersible Captain Logbook</option>
+                <option value="key">Brass Stateroom Key</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Gives Inventory Item:</span>
+              <input type="text" class="gen-param-input" id="gen-l-givekey" value="B52_Key" placeholder="Leave empty if none">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Transcript Body:</span>
+              <textarea class="gen-param-input" id="gen-l-body" style="width:100%; height:80px; resize:none;">The chronometer stopped at exactly 11:40 PM. The water is rising in the mail room, cold as the void between stars. If anyone finds this cabin... do not listen to the bells.</textarea>
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666;">Spawns an interactive 3D document mesh onto the floor or desk.</div>
+        `;
+        execBtn.textContent = 'Create Lore Document';
+      } else if (tab === 'audio') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Procedural Audio Synthesizer Studio</div>
+            <div class="gen-pane-desc">Web Audio API procedural soundboard for testing atmosphere and sound design in DEEP: BELOW without external files.</div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playHullGroan()" style="padding:12px; font-weight:600; color:#38bdf8;">🔊 Hull Groan (3,800m Pressure)</button>
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playSonarPing()" style="padding:12px; font-weight:600; color:#34d399;">📡 Active Sonar Ping</button>
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playDoorCreak()" style="padding:12px; font-weight:600; color:#eab308;">🚪 Wood Door Creak</button>
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playDoorLatch()" style="padding:12px; font-weight:600; color:#cbd5e1;">🔒 Door Latch Click</button>
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playDoorLocked()" style="padding:12px; font-weight:600; color:#f87171;">🚫 Door Locked Rattle</button>
+              <button class="btn-unity-cancel" onclick="NyxAudioSynth.playItemPickup()" style="padding:12px; font-weight:600; color:#c084fc;">✨ Item Pickup Chime</button>
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666; margin-top:16px;">All sounds are dynamically synthesized in real-time via harmonic oscillators and filters.</div>
+        `;
+        execBtn.textContent = 'Close Audio Studio';
+      } else if (tab === 'atmosphere') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Atmospheric Lighting & Retro Horror FX</div>
+            <div class="gen-pane-desc">Adjust scene ambient tone, underwater volumetric fog, CRT phosphor scanlines, and retro resolution downscaling.</div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Atmosphere Preset:</span>
+              <select class="gen-param-input" id="gen-fx-preset" onchange="applyAtmospherePreset(this.value)">
+                <option value="abyss">Abyssal 3,800m Depth (Pitch Black + Cold Silt)</option>
+                <option value="titanic">RMS Titanic 1912 (Warm Gaslight Amber)</option>
+                <option value="submersible">Submersible Cockpit (Deep Marine Red)</option>
+              </select>
+            </div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">Retro Pixelation Downscale:</span>
+              <select class="gen-param-input" id="gen-fx-pixel" onchange="applyRetroDownscale(this.value)">
+                <option value="1">1x (Native High-DPI 1080p)</option>
+                <option value="2">2x (720p Retro Workstation)</option>
+                <option value="3">3x (480p PS1 / 1998 Horror)</option>
+                <option value="4">4x (240p Extreme Dithered)</option>
+              </select>
+            </div>
+
+            <div class="gen-param-row">
+              <span class="gen-param-label">CRT Phosphor Scanlines:</span>
+              <input type="checkbox" id="gen-fx-crt" onchange="toggleCRTOverlay(this.checked)" style="accent-color:#206095;">
+            </div>
+          </div>
+          <div style="font-size:10.5px; color:#666666;">Applies immediate visual post-processing to the 3D viewport canvas.</div>
+        `;
+        execBtn.textContent = 'Apply Atmosphere & Close';
+      }
+    }
+
+    function executeCurrentGenerator() {
+      if (currentGeneratorTab === 'terrain') {
+        const w = parseFloat(document.getElementById('gen-t-width')?.value || 80);
+        const l = parseFloat(document.getElementById('gen-t-length')?.value || 80);
+        const segs = parseInt(document.getElementById('gen-t-segs')?.value || 64);
+        const hScale = parseFloat(document.getElementById('gen-t-scale')?.value || 6);
+        const trench = parseFloat(document.getElementById('gen-t-trench')?.value || 12);
+        const mat = document.getElementById('gen-t-mat')?.value || 'silt';
+
+        buildProceduralTerrain({ width: w, length: l, segs, hScale, trench, mat });
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'corridor') {
+        const segs = parseInt(document.getElementById('gen-c-segs')?.value || 4);
+        const w = parseFloat(document.getElementById('gen-c-width')?.value || 3.2);
+        const h = parseFloat(document.getElementById('gen-c-height')?.value || 2.8);
+        const theme = document.getElementById('gen-c-theme')?.value || 'titanic';
+        const doors = document.getElementById('gen-c-doors')?.value || 'both';
+        const spawnDoors = document.getElementById('gen-c-door-spawn')?.checked;
+
+        buildModularCorridor({ segs, width: w, height: h, theme, doors, spawnDoors });
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'door') {
+        const name = document.getElementById('gen-d-name')?.value || 'Interactive_Door';
+        const hinge = document.getElementById('gen-d-hinge')?.value || 'left';
+        const bidir = document.getElementById('gen-d-bidir')?.checked;
+        const locked = document.getElementById('gen-d-locked')?.checked;
+        const key = document.getElementById('gen-d-key')?.value || '';
+
+        buildInteractiveDoorEntity({ name, hinge, bidir, locked, key });
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'lore') {
+        const title = document.getElementById('gen-l-title')?.value || 'Letter';
+        const type = document.getElementById('gen-l-type')?.value || 'letter';
+        const giveKey = document.getElementById('gen-l-givekey')?.value || '';
+        const body = document.getElementById('gen-l-body')?.value || '';
+
+        buildLoreDocumentEntity({ title, type, giveKey, body });
+        closeGeneratorModal();
+
+      } else {
+        closeGeneratorModal();
+      }
+    }
+
+    // === BUILDERS IMPLEMENTATION ===
+
+    // 1. Procedural Terrain Builder
+    function buildProceduralTerrain(params) {
+      const geo = new THREE.PlaneGeometry(params.width, params.length, params.segs, params.segs);
+      geo.rotateX(-Math.PI / 2);
+
+      const pos = geo.attributes.position;
+      const count = pos.count;
+
+      for (let i = 0; i < count; i++) {
+        const x = pos.getX(i);
+        const z = pos.getZ(i);
+
+        // Harmonic multi-octave noise
+        const freq1 = 0.04;
+        const freq2 = 0.08;
+        let y = Math.sin(x * freq1) * Math.cos(z * freq1) * params.hScale;
+        y += Math.sin(x * freq2 + 1.2) * Math.cos(z * freq2 + 2.1) * (params.hScale * 0.4);
+
+        // Central Abyssal Trench Rift
+        const distFromCenter = Math.abs(x - 2.0);
+        if (distFromCenter < 14) {
+          const trenchDrop = (1.0 - (distFromCenter / 14)) * params.trench;
+          y -= trenchDrop;
+        }
+
+        pos.setY(i, y);
+      }
+      geo.computeVertexNormals();
+
+      let color = 0x111622;
+      let rough = 0.85;
+      if (params.mat === 'basalt') color = 0x090a0f;
+      else if (params.mat === 'mud') color = 0x181410;
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: rough,
+        metalness: 0.15,
+        flatShading: false
+      });
+
+      const terrainMesh = new THREE.Mesh(geo, mat);
+      const name = `Abyssal_Seabed_${Date.now().toString().slice(-4)}`;
+      terrainMesh.name = name;
+      terrainMesh.position.set(0, -1.0, 0);
+      terrainMesh.receiveShadow = true;
+
+      scene.add(terrainMesh);
+      editorObjects[name] = terrainMesh;
+      addHierarchyItem(name);
+      selectObject(terrainMesh);
+
+      HistoryManager.record({
+        name: `Generate ${name}`,
+        undo() { scene.remove(terrainMesh); delete editorObjects[name]; removeHierarchyItem(name); deselectObject(); },
+        redo() { scene.add(terrainMesh); editorObjects[name] = terrainMesh; addHierarchyItem(name); selectObject(terrainMesh); }
+      });
+
+      showEditorNotification(`Generated ${name} (${params.width}x${params.length}m)`);
+      logConsole(`[TerrainGenerator] Procedural Seabed created with ${count} vertices.`);
+    }
+
+    // 2. Modular Corridor Builder
+    function buildModularCorridor(params) {
+      const group = new THREE.Group();
+      const segLength = 5.0;
+      const totalLen = params.segs * segLength;
+      const name = `Modular_Corridor_${Date.now().toString().slice(-4)}`;
+      group.name = name;
+
+      // Materials based on theme
+      let wallMat = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.6 }); // Titanic wood
+      let floorMat = new THREE.MeshStandardMaterial({ color: 0x5a1818, roughness: 0.8 }); // Red runner
+      let ceilingMat = new THREE.MeshStandardMaterial({ color: 0xded2be, roughness: 0.7 });
+
+      if (params.theme === 'submersible') {
+        wallMat = new THREE.MeshStandardMaterial({ color: 0x22262d, roughness: 0.4, metalness: 0.6 });
+        floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1d22, roughness: 0.5, metalness: 0.5 });
+        ceilingMat = new THREE.MeshStandardMaterial({ color: 0x1e2126, roughness: 0.4, metalness: 0.6 });
+      } else if (params.theme === 'derelict') {
+        wallMat = new THREE.MeshStandardMaterial({ color: 0x2d3a35, roughness: 0.9, metalness: 0.2 });
+        floorMat = new THREE.MeshStandardMaterial({ color: 0x19211e, roughness: 0.95 });
+        ceilingMat = new THREE.MeshStandardMaterial({ color: 0x1c2421, roughness: 0.9 });
+      }
+
+      // Floor
+      const floorGeo = new THREE.PlaneGeometry(params.width, totalLen);
+      floorGeo.rotateX(-Math.PI / 2);
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.position.set(0, 0, -totalLen / 2);
+      floor.receiveShadow = true;
+      group.add(floor);
+
+      // Ceiling
+      const ceilGeo = new THREE.PlaneGeometry(params.width, totalLen);
+      ceilGeo.rotateX(Math.PI / 2);
+      const ceil = new THREE.Mesh(ceilGeo, ceilingMat);
+      ceil.position.set(0, params.height, -totalLen / 2);
+      group.add(ceil);
+
+      // Walls & Doorways
+      const halfW = params.width / 2;
+      for (let i = 0; i < params.segs; i++) {
+        const zCenter = -(i * segLength + segLength / 2);
+
+        // Left Wall
+        const hasLeftDoor = (params.doors === 'both' || params.doors === 'left') && (i % 2 === 0);
+        if (hasLeftDoor) {
+          // Wall with door opening
+          const leftP1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, 1.8), wallMat);
+          leftP1.position.set(-halfW, params.height / 2, zCenter - 1.5);
+          group.add(leftP1);
+
+          const leftP2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, 1.8), wallMat);
+          leftP2.position.set(-halfW, params.height / 2, zCenter + 1.5);
+          group.add(leftP2);
+
+          const header = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height - 2.1, 1.4), wallMat);
+          header.position.set(-halfW, params.height - (params.height - 2.1) / 2, zCenter);
+          group.add(header);
+
+          if (params.spawnDoors) {
+            const door = createDoorSubgroup(`Door_L_${i}`, -halfW, zCenter, 'left');
+            group.add(door);
+          }
+        } else {
+          // Solid Wall
+          const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, segLength), wallMat);
+          leftWall.position.set(-halfW, params.height / 2, zCenter);
+          group.add(leftWall);
+        }
+
+        // Right Wall
+        const hasRightDoor = (params.doors === 'both' || params.doors === 'right') && (i % 2 === 1);
+        if (hasRightDoor) {
+          const rP1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, 1.8), wallMat);
+          rP1.position.set(halfW, params.height / 2, zCenter - 1.5);
+          group.add(rP1);
+
+          const rP2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, 1.8), wallMat);
+          rP2.position.set(halfW, params.height / 2, zCenter + 1.5);
+          group.add(rP2);
+
+          const header = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height - 2.1, 1.4), wallMat);
+          header.position.set(halfW, params.height - (params.height - 2.1) / 2, zCenter);
+          group.add(header);
+
+          if (params.spawnDoors) {
+            const door = createDoorSubgroup(`Door_R_${i}`, halfW, zCenter, 'right');
+            group.add(door);
+          }
+        } else {
+          const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, params.height, segLength), wallMat);
+          rightWall.position.set(halfW, params.height / 2, zCenter);
+          group.add(rightWall);
+        }
+
+        // Lighting Sconce
+        const light = new THREE.PointLight(0xffa756, 0.7, 9.0);
+        light.position.set(0, params.height - 0.4, zCenter);
+        group.add(light);
+      }
+
+      scene.add(group);
+      editorObjects[name] = group;
+      addHierarchyItem(name);
+      selectObject(group);
+
+      HistoryManager.record({
+        name: `Generate ${name}`,
+        undo() { scene.remove(group); delete editorObjects[name]; removeHierarchyItem(name); deselectObject(); },
+        redo() { scene.add(group); editorObjects[name] = group; addHierarchyItem(name); selectObject(group); }
+      });
+
+      showEditorNotification(`Built ${name} (${totalLen}m long)`);
+      logConsole(`[CorridorGenerator] Created modular corridor with ${params.segs} segments.`);
+    }
+
+    function createDoorSubgroup(doorName, posX, posZ, hingeSide) {
+      const pivot = new THREE.Group();
+      pivot.name = doorName;
+      pivot.position.set(posX, 0, posZ + (hingeSide === 'left' ? -0.6 : 0.6));
+
+      const doorMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 2.1, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.5 })
+      );
+      doorMesh.position.set(0, 1.05, hingeSide === 'left' ? 0.6 : -0.6);
+      doorMesh.castShadow = true;
+      pivot.add(doorMesh);
+
+      pivot.userData = {
+        name: doorName,
+        type: 'door',
+        isOpen: false,
+        targetAngle: 0,
+        currentAngle: 0,
+        hingeSide: hingeSide,
+        isBiDirectional: true,
+        isLocked: false
+      };
+      doorMesh.userData = pivot.userData;
+      return pivot;
+    }
+
+    // 3. Standalone Interactive Door Entity Builder
+    function buildInteractiveDoorEntity(params) {
+      const pivot = new THREE.Group();
+      const name = params.name || `Door_${Date.now().toString().slice(-4)}`;
+      pivot.name = name;
+      pivot.position.set(0, 0, 0);
+
+      const doorMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.09, 2.2, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0x452b1b, roughness: 0.45 })
+      );
+      doorMesh.position.set(0, 1.1, params.hinge === 'left' ? 0.6 : -0.6);
+      doorMesh.castShadow = true;
+      pivot.add(doorMesh);
+
+      // Brass door knob
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 }));
+      knob.position.set(0.08, 1.0, params.hinge === 'left' ? 1.05 : -1.05);
+      pivot.add(knob);
+
+      pivot.userData = {
+        name: name,
+        type: 'door',
+        isOpen: false,
+        targetAngle: 0,
+        currentAngle: 0,
+        hingeSide: params.hinge,
+        isBiDirectional: params.bidir !== false,
+        isLocked: params.locked === true,
+        requiredKey: params.key || ''
+      };
+      doorMesh.userData = pivot.userData;
+
+      scene.add(pivot);
+      editorObjects[name] = pivot;
+      addHierarchyItem(name);
+      selectObject(pivot);
+
+      HistoryManager.record({
+        name: `Create ${name}`,
+        undo() { scene.remove(pivot); delete editorObjects[name]; removeHierarchyItem(name); deselectObject(); },
+        redo() { scene.add(pivot); editorObjects[name] = pivot; addHierarchyItem(name); selectObject(pivot); }
+      });
+
+      showEditorNotification(`Created ${name}`);
+      logConsole(`[DoorCreator] Created interactive door with bi-directional swing.`);
+    }
+
+    // 4. Standalone Lore Document Entity Builder
+    function buildLoreDocumentEntity(params) {
+      const name = `Lore_${Date.now().toString().slice(-4)}`;
+      const geo = new THREE.BoxGeometry(0.35, 0.02, 0.5);
+      const mat = new THREE.MeshStandardMaterial({ color: 0xede0c8, roughness: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = name;
+      mesh.position.set(0, 0.8, 0); // On table height
+
+      mesh.userData = {
+        name: name,
+        type: 'inspect',
+        title: params.title,
+        text: params.body,
+        giveItem: params.giveKey || null
+      };
+
+      scene.add(mesh);
+      editorObjects[name] = mesh;
+      addHierarchyItem(name);
+      selectObject(mesh);
+
+      HistoryManager.record({
+        name: `Create ${name}`,
+        undo() { scene.remove(mesh); delete editorObjects[name]; removeHierarchyItem(name); deselectObject(); },
+        redo() { scene.add(mesh); editorObjects[name] = mesh; addHierarchyItem(name); selectObject(mesh); }
+      });
+
+      showEditorNotification(`Created Lore Item: ${params.title}`);
+      logConsole(`[LoreCreator] Created inspectable item "${params.title}".`);
+    }
+
+    // 5. Atmosphere Presets & CRT Retro Shader Controls
+    function applyAtmospherePreset(preset) {
+      if (preset === 'abyss') {
+        scene.background = new THREE.Color(0x020409);
+        scene.fog = new THREE.FogExp2(0x020409, 0.04);
+        showEditorNotification('Atmosphere: Abyssal 3,800m');
+      } else if (preset === 'titanic') {
+        scene.background = new THREE.Color(0x18120d);
+        scene.fog = new THREE.FogExp2(0x18120d, 0.02);
+        showEditorNotification('Atmosphere: RMS Titanic 1912');
+      } else if (preset === 'submersible') {
+        scene.background = new THREE.Color(0x120404);
+        scene.fog = new THREE.FogExp2(0x120404, 0.05);
+        showEditorNotification('Atmosphere: Submersible Emergency');
+      }
+    }
+
+    function applyRetroDownscale(scale) {
+      const s = parseInt(scale) || 1;
+      const w = canvas.clientWidth / s;
+      const h = canvas.clientHeight / s;
+      renderer.setSize(w, h, false);
+      showEditorNotification(`Retro Downscale: ${s}x`);
+    }
+
+    function toggleCRTOverlay(enabled) {
+      const el = document.getElementById('crt-overlay');
+      if (el) {
+        if (enabled !== undefined) el.className = enabled ? 'active' : '';
+        else el.classList.toggle('active');
+      }
+    }
+
+    // Component Dropdown Actions
+    function addSelectedComponent(compType) {
+      if (!currentSelectedObject) {
+        showEditorNotification('Select an object in the scene first.');
+        return;
+      }
+      if (compType === 'door') {
+        currentSelectedObject.userData.type = 'door';
+        currentSelectedObject.userData.isOpen = false;
+        currentSelectedObject.userData.targetAngle = 0;
+        currentSelectedObject.userData.currentAngle = 0;
+        currentSelectedObject.userData.isBiDirectional = true;
+        showEditorNotification(`Added Interactive Door Component to ${currentSelectedObject.name}`);
+      } else if (compType === 'inspect') {
+        currentSelectedObject.userData.type = 'inspect';
+        currentSelectedObject.userData.title = currentSelectedObject.name;
+        currentSelectedObject.userData.text = 'Historical document found in the depths.';
+        showEditorNotification(`Added Lore Inspect Component to ${currentSelectedObject.name}`);
+      } else if (compType === 'item') {
+        currentSelectedObject.userData.type = 'pickup';
+        currentSelectedObject.userData.itemId = currentSelectedObject.name;
+        showEditorNotification(`Added Pickup Item Component to ${currentSelectedObject.name}`);
+      } else if (compType === 'rotator') {
+        currentSelectedObject.userData.isRotator = true;
+        showEditorNotification(`Added Auto Rotator Script to ${currentSelectedObject.name}`);
+      }
+    }
+
+
     // === DYNAMIC PROJECT ASSETS VIRTUAL FILESYSTEM ===
     let activeAssetFolder = 'Scenes';
 
