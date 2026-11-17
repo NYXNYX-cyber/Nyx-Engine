@@ -928,7 +928,31 @@
     .gate-brand img { width: 24px; height: 24px; margin-bottom: 6px; opacity: 0.9; }
     .gate-brand h3 { font-size: 14px; font-weight: 600; color: #ffffff; }
     .gate-slots { font-size: 11px; color: #888888; margin-top: 4px; }
-</style>
+
+    #editor-toast {
+      position: fixed;
+      bottom: 28px;
+      right: 24px;
+      background: #202020;
+      border: 1px solid #383838;
+      color: #e0e0e0;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 500;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform: translateY(6px);
+    }
+    #editor-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+  </style>
   <script src="/libs/three.min.js"></script>
 </head>
 <body>
@@ -1467,6 +1491,7 @@
     const canvas = document.getElementById('three-viewport-canvas');
 
     const scene = new THREE.Scene();
+    const editorObjects = {};
     scene.fog = new THREE.FogExp2(0x020409, 0.06);
 
     const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 100);
@@ -1909,6 +1934,9 @@
           if (gizmoHits.length > 0) {
             isDraggingGizmo = true;
             activeGizmoAxis = gizmoHits[0].object.userData.axis;
+            if (currentSelectedObject) {
+              gizmoDragStartPos = currentSelectedObject.position.clone();
+            }
             return;
           }
 
@@ -1927,11 +1955,35 @@
       }
     });
 
+    let gizmoDragStartPos = null;
     window.addEventListener('mouseup', (e) => {
       if (e.button === 2) { isRightMouseDown = false; canvas.style.cursor = 'default'; }
       if (e.button === 1) { isMiddleMouseDown = false; canvas.style.cursor = 'default'; }
+      if (isDraggingGizmo && currentSelectedObject && gizmoDragStartPos) {
+        const obj = currentSelectedObject;
+        const startP = gizmoDragStartPos.clone();
+        const endP = obj.position.clone();
+        if (startP.distanceTo(endP) > 0.005) {
+          HistoryManager.record({
+            name: `Move ${obj.name}`,
+            undo() {
+              obj.position.copy(startP);
+              gizmoGroup.position.copy(startP);
+              selectionWireframe.setFromObject(obj);
+              syncInspectorCoords();
+            },
+            redo() {
+              obj.position.copy(endP);
+              gizmoGroup.position.copy(endP);
+              selectionWireframe.setFromObject(obj);
+              syncInspectorCoords();
+            }
+          });
+        }
+      }
       isDraggingGizmo = false;
       activeGizmoAxis = null;
+      gizmoDragStartPos = null;
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -1988,8 +2040,71 @@
       }
     }, { passive: false });
 
-    // KEYBOARD LISTENERS
+    // KEYBOARD LISTENERS & SHORTCUTS (UNITY STANDARD)
     window.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+
+      // --- WORKSTATION GLOBAL SHORTCUTS (When not typing) ---
+      if (!isInput) {
+        // Ctrl + Z -> Undo
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+          e.preventDefault();
+          HistoryManager.undo();
+          return;
+        }
+        // Ctrl + Y or Ctrl + Shift + Z -> Redo
+        if (((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
+            ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+          e.preventDefault();
+          HistoryManager.redo();
+          return;
+        }
+        // Ctrl + D -> Duplicate GameObject
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+          e.preventDefault();
+          duplicateSelectedObject();
+          return;
+        }
+        // Delete or Backspace -> Delete GameObject
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          deleteSelectedObject();
+          return;
+        }
+        // Ctrl + S -> Save Project to SQLite
+        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          saveSceneToCloud();
+          return;
+        }
+        // F -> Focus Camera on selected object
+        if ((e.key === 'f' || e.key === 'F') && currentViewMode === 'scene') {
+          focusSelectedObject();
+          return;
+        }
+        // F5 -> Toggle Play mode
+        if (e.key === 'F5') {
+          e.preventDefault();
+          togglePlayMode();
+          return;
+        }
+        // Escape
+        if (e.key === 'Escape') {
+          closeLoreModal();
+          return;
+        }
+
+        // Tool Switching W, E, R, Q (When NOT holding right-click fly-cam)
+        if (!isRightMouseDown) {
+          if (e.key === 'w' || e.key === 'W') { setGizmoTool('move'); showEditorNotification('Move Tool (W)'); return; }
+          if (e.key === 'e' || e.key === 'E') { setGizmoTool('rotate'); showEditorNotification('Rotate Tool (E)'); return; }
+          if (e.key === 'r' || e.key === 'R') { setGizmoTool('scale'); showEditorNotification('Scale Tool (R)'); return; }
+          if (e.key === 'q' || e.key === 'Q') { setGizmoTool('hand'); showEditorNotification('Hand Tool (Q)'); return; }
+        }
+      }
+
+      // --- CAMERA NAVIGATION KEYS (When holding Right-Click or in Game Mode) ---
       const k = e.key.toLowerCase();
       if (k === 'w' || k === 'arrowup') moveKeys.w = true;
       if (k === 's' || k === 'arrowdown') moveKeys.s = true;
@@ -1999,11 +2114,7 @@
       if (k === 'e' && currentViewMode === 'game' && activeInteractable) handleInteraction();
       else if (k === 'e') moveKeys.e = true;
       if (e.shiftKey) moveKeys.shift = true;
-      if (k === 'f' && currentViewMode === 'scene') focusSelectedObject();
-      else if (k === 'f' && currentViewMode === 'game') toggleFlashlight();
-      if (k === 'escape') closeLoreModal();
-      if (e.key === 'F5') { e.preventDefault(); togglePlayMode(); }
-      if (e.ctrlKey && k === 's') { e.preventDefault(); saveSceneToCloud(); }
+      if (k === 'f' && currentViewMode === 'game') toggleFlashlight();
     });
 
     window.addEventListener('keyup', (e) => {
@@ -2165,7 +2276,110 @@
       else if (name.includes('Corridor')) selectObject(corridorGroup);
     }
 
-    function loadAssetFolder(name) {
+    
+    // === DYNAMIC PROJECT ASSETS VIRTUAL FILESYSTEM ===
+    let activeAssetFolder = 'Scenes';
+
+    const projectTemplatesAssets = {
+      blank3d: {
+        'Scenes': [
+          { name: 'Main_Scene.scene', type: 'Scene', desc: 'Active 3D Scene' }
+        ],
+        'Prefabs': [
+          { name: 'Default_Cube.prefab', type: 'Prefab', desc: 'Standard 3D Box' }
+        ],
+        'Materials': [
+          { name: 'M_Default_PBR.mat', type: 'Material', desc: 'PBR Standard Material' }
+        ],
+        'Shaders': [
+          { name: 'Standard_Lit.shader', type: 'Shader', desc: 'PBR Surface Shader' },
+          { name: 'Unlit_Color.shader', type: 'Shader', desc: 'Flat Unlit Shader' }
+        ],
+        'Scripts': [
+          { name: 'Rotator.rs', type: 'Rust Script', desc: 'Rotates entity on Y-axis' }
+        ]
+      },
+      deepbelow: {
+        'Scenes': [
+          { name: '02_RMS_Titanic.scene', type: 'Scene', desc: 'First-Class Corridor' },
+          { name: '01_Expedition_Sub.scene', type: 'Scene', desc: 'Submersible Cockpit' },
+          { name: '03_Titanic_Aura.scene', type: 'Scene', desc: 'Temporal Anomaly' }
+        ],
+        'Prefabs': [
+          { name: 'Clock_1140_Model.prefab', type: 'Prefab', desc: 'Grandfather Clock' },
+          { name: 'Stateroom_Door.prefab', type: 'Prefab', desc: 'Interactive Door' },
+          { name: 'Letter_August.prefab', type: 'Prefab', desc: 'Lore Document' }
+        ],
+        'Materials': [
+          { name: 'M_Titanic_Wood.mat', type: 'Material', desc: 'Mahogany Wall Texture' },
+          { name: 'M_Titanic_Clock.mat', type: 'Material', desc: 'Retro 3D Shader' }
+        ],
+        'Shaders': [
+          { name: 'Retro_3D_Lit.glsl', type: 'GLSL ES 3.0', desc: 'CRT & Dither Shader' }
+        ],
+        'Audio': [
+          { name: 'Clock_Tick_Spatial.wav', type: 'Audio', desc: '3D Spatial Audio' },
+          { name: 'Door_Creak.wav', type: 'Audio', desc: 'Sound Effect' }
+        ]
+      }
+    };
+
+    function renderProjectAssetBrowser(templateKey) {
+      const tpl = templateKey || 'blank3d';
+      const assets = projectTemplatesAssets[tpl] || projectTemplatesAssets['blank3d'];
+      const foldersList = Object.keys(assets);
+
+      // Rebuild Left Folder Pane
+      const folderPane = document.querySelector('.folder-tree-pane');
+      if (folderPane) {
+        let folderHtml = `
+          <div class="tree-row tree-folder" style="font-weight:700; color:#fff;">Assets</div>
+          <div style="margin-left:10px;">
+        `;
+        foldersList.forEach((f, idx) => {
+          const isSel = (f === activeAssetFolder || (idx === 0 && !foldersList.includes(activeAssetFolder)));
+          if (idx === 0 && !foldersList.includes(activeAssetFolder)) activeAssetFolder = f;
+          folderHtml += `<div class="tree-row ${isSel ? 'selected' : ''}" onclick="loadAssetFolder('${f}')">${f}</div>`;
+        });
+        folderHtml += `</div>`;
+        folderPane.innerHTML = folderHtml;
+      }
+
+      // Rebuild Items List
+      loadAssetFolder(activeAssetFolder, tpl);
+    }
+
+    function loadAssetFolder(folderName, tplKey) {
+      activeAssetFolder = folderName;
+      document.querySelectorAll('.folder-tree-pane .tree-row').forEach(r => {
+        if (r.textContent.trim() === folderName) r.classList.add('selected');
+        else r.classList.remove('selected');
+      });
+
+      const tpl = tplKey || (currentProject && currentProject.template) || (selectedTemplate || 'blank3d');
+      const assets = (projectTemplatesAssets[tpl] || projectTemplatesAssets['blank3d'])[folderName] || [];
+
+      const listPane = document.getElementById('asset-items-list');
+      if (!listPane) return;
+
+      if (assets.length === 0) {
+        listPane.innerHTML = '<div style="padding:12px; color:#666666; font-size:11px;">Folder is empty</div>';
+        return;
+      }
+
+      let itemsHtml = '';
+      assets.forEach((item, idx) => {
+        itemsHtml += `
+          <div class="asset-item-row ${idx === 0 ? 'selected' : ''}" onclick="selectAssetFile('${item.name}')">
+            <span style="font-weight:500;">${item.name}</span>
+            <span style="color:var(--text-faint); font-family:var(--font-mono); font-size:10px;">${item.desc || item.type}</span>
+          </div>
+        `;
+      });
+      listPane.innerHTML = itemsHtml;
+    }
+
+    function old_loadAssetFolder(name) {
       document.querySelectorAll('.folder-tree-pane .tree-row').forEach(r => r.classList.remove('selected'));
       event.currentTarget.classList.add('selected');
     }
@@ -2187,6 +2401,150 @@
     }
 
     // CREATE GAMEOBJECT IN RUNTIME
+    
+    // === EDITING HISTORY (UNDO / REDO) & KEYBOARD SHORTCUTS ===
+    const HistoryManager = {
+      undoStack: [],
+      redoStack: [],
+      maxSteps: 50,
+
+      record(action) {
+        this.undoStack.push(action);
+        if (this.undoStack.length > this.maxSteps) this.undoStack.shift();
+        this.redoStack = [];
+        logConsole(`[History] Action: ${action.name}`);
+      },
+
+      undo() {
+        if (this.undoStack.length === 0) {
+          showEditorNotification('Nothing to undo');
+          return;
+        }
+        const action = this.undoStack.pop();
+        action.undo();
+        this.redoStack.push(action);
+        showEditorNotification(`Undo: ${action.name}`);
+        logConsole(`[History] Undo: ${action.name}`);
+      },
+
+      redo() {
+        if (this.redoStack.length === 0) {
+          showEditorNotification('Nothing to redo');
+          return;
+        }
+        const action = this.redoStack.pop();
+        action.redo();
+        this.undoStack.push(action);
+        showEditorNotification(`Redo: ${action.name}`);
+        logConsole(`[History] Redo: ${action.name}`);
+      }
+    };
+
+    let toastTimer = null;
+    function showEditorNotification(msg) {
+      const toast = document.getElementById('editor-toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+    }
+
+    function addHierarchyItem(name) {
+      const pane = document.getElementById('hierarchy-tree-pane');
+      if (!pane) return;
+      const row = document.createElement('div');
+      row.className = 'tree-row selected';
+      row.id = `hier-row-${name}`;
+      row.innerHTML = `<span class="tree-arrow">▪</span> <span style="font-weight:700; color:#38bdf8;">${name}</span>`;
+      row.onclick = () => selectHierarchyItem(name);
+      pane.appendChild(row);
+    }
+
+    function removeHierarchyItem(name) {
+      const row = document.getElementById(`hier-row-${name}`) || Array.from(document.querySelectorAll('#hierarchy-tree-pane .tree-row')).find(r => r.textContent.includes(name));
+      if (row) row.remove();
+    }
+
+    function duplicateSelectedObject() {
+      if (!currentSelectedObject || currentSelectedObject === camera) return;
+      const original = currentSelectedObject;
+      const clone = original.clone();
+      const baseName = original.name.replace(/_Copy.*$/, '');
+      const copyCount = (scene.children.filter(c => c.name.startsWith(baseName)).length);
+      const newName = `${baseName}_Copy_${copyCount}`;
+      clone.name = newName;
+      clone.userData = { ...original.userData, name: newName };
+
+      clone.position.x += 1.5;
+
+      scene.add(clone);
+      editorObjects[newName] = clone;
+      addHierarchyItem(newName);
+      selectObject(clone);
+
+      HistoryManager.record({
+        name: `Duplicate ${newName}`,
+        undo() {
+          scene.remove(clone);
+          delete editorObjects[newName];
+          removeHierarchyItem(newName);
+          selectObject(original);
+        },
+        redo() {
+          scene.add(clone);
+          editorObjects[newName] = clone;
+          addHierarchyItem(newName);
+          selectObject(clone);
+        }
+      });
+
+      showEditorNotification(`Duplicated ${newName}`);
+    }
+
+    function deleteSelectedObject() {
+      if (!currentSelectedObject || currentSelectedObject === camera) return;
+      const obj = currentSelectedObject;
+      const name = obj.name || 'Object';
+      const parent = obj.parent || scene;
+
+      parent.remove(obj);
+      delete editorObjects[name];
+      removeHierarchyItem(name);
+
+      currentSelectedObject = null;
+      selectionWireframe.visible = false;
+      gizmoGroup.visible = false;
+
+      HistoryManager.record({
+        name: `Delete ${name}`,
+        undo() {
+          parent.add(obj);
+          editorObjects[name] = obj;
+          addHierarchyItem(name);
+          selectObject(obj);
+        },
+        redo() {
+          parent.remove(obj);
+          delete editorObjects[name];
+          removeHierarchyItem(name);
+          currentSelectedObject = null;
+          selectionWireframe.visible = false;
+          gizmoGroup.visible = false;
+        }
+      });
+
+      showEditorNotification(`Deleted ${name}`);
+    }
+
+    function focusSelectedObject() {
+      if (!currentSelectedObject) return;
+      const target = currentSelectedObject.position;
+      camera.position.set(target.x, target.y + 2.5, target.z + 5.0);
+      camera.lookAt(target);
+      showEditorNotification(`Focused on ${currentSelectedObject.name}`);
+    }
+
     function createGameObject(type) {
       let newMesh = null;
       if (type === 'Cube') {
@@ -2554,24 +2912,28 @@
       document.title = `Nyx Studio 3D — [${name}]`;
       document.getElementById('project-hub-overlay').classList.add('hidden');
 
-      // Fetch saved project data
+      let tpl = templateOverride || (name.toLowerCase().includes('deep') ? 'deepbelow' : 'blank3d');
+      let data = null;
+
       try {
         const resp = await fetch(`/api/projects/${id}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('nyx_token')}` }
         });
         if (resp.ok) {
-          const data = await resp.json();
-          const tpl = templateOverride || data.template || (data.name.includes('DEEP') ? 'deepbelow' : 'blank3d');
-          applySceneTemplate(tpl, data);
+          const raw = await resp.text();
+          try {
+            data = JSON.parse(raw);
+            if (data.template) tpl = data.template;
+          } catch(e) {}
         }
-      } catch (e) {
-        applySceneTemplate(templateOverride || 'blank3d');
-      }
+      } catch (e) {}
 
-      logConsole(`[ProjectHub] Loaded project "${name}" (${id})`);
+      applySceneTemplate(tpl, data);
+      logConsole(`[ProjectHub] Loaded project "${name}" (${id}) with template "${tpl}"`);
     }
 
     function applySceneTemplate(tpl, data) {
+      renderProjectAssetBrowser(tpl);
       if (tpl === 'blank3d') {
         buildBlank3DScene();
       } else if (tpl === 'deepbelow') {
@@ -2801,5 +3163,6 @@
     });
 
   </script>
+  <div id="editor-toast">Notification</div>
 </body>
 </html>
