@@ -359,16 +359,18 @@
     #scene-nav-hint {
       position: absolute;
       bottom: 8px; left: 8px;
-      background: rgba(20, 20, 24, 0.88);
-      border: 1px solid var(--border-inner);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       padding: 6px 10px;
-      border-radius: 3px;
+      border-radius: 4px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 9.5px;
       color: var(--text-muted);
       pointer-events: none;
-      z-index: 15;
-      line-height: 1.5;
+      z-index: 10;
+      line-height: 1.4;
+      max-width: 250px;
     }
     #scene-nav-hint span { color: var(--accent-blue); font-weight: 600; }
 
@@ -453,6 +455,7 @@
     }
     .asset-items-pane {
       flex: 1;
+      overflow-x: hidden;
       overflow-y: auto;
       padding: 6px;
       background: var(--bg-panel);
@@ -589,7 +592,10 @@
       padding: 0 8px;
       font-family: var(--font-mono);
       font-size: 10px;
-      color: var(--text-faint);
+      color: var(--text-muted);
+      overflow: hidden;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
   
     /* === PROFESSIONAL UNITY HUB WORKSTATION STYLES (AUSTERE & MONOCHROME) === */
@@ -3494,8 +3500,8 @@
       return pivot;
     }
 
-    // 3. Standalone Interactive Door Entity Builder
-    function buildInteractiveDoorEntity(params) {
+    // 3. Standalone Interactive Door Entity Builder & Instance Factory
+    function createDoorGroupInstance(params) {
       const pivot = new THREE.Group();
       const name = params.name || `Door_${Date.now().toString().slice(-4)}`;
       pivot.name = name;
@@ -3505,27 +3511,37 @@
         new THREE.BoxGeometry(0.09, 2.2, 1.2),
         new THREE.MeshStandardMaterial({ color: 0x452b1b, roughness: 0.45 })
       );
-      doorMesh.position.set(0, 1.1, params.hinge === 'left' ? 0.6 : -0.6);
+      doorMesh.position.set(0, 1.1, (params.hinge === 'left' || params.hingeSide === 'left') ? 0.6 : -0.6);
       doorMesh.castShadow = true;
+      doorMesh.receiveShadow = true;
       pivot.add(doorMesh);
 
       // Brass door knob
       const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 }));
-      knob.position.set(0.08, 1.0, params.hinge === 'left' ? 1.05 : -1.05);
+      knob.position.set(0.08, 1.0, (params.hinge === 'left' || params.hingeSide === 'left') ? 1.05 : -1.05);
+      knob.castShadow = true;
       pivot.add(knob);
 
       pivot.userData = {
         name: name,
+        isUserObject: true,
+        objType: 'door',
         type: 'door',
-        isOpen: false,
-        targetAngle: 0,
-        currentAngle: 0,
-        hingeSide: params.hinge,
-        isBiDirectional: params.bidir !== false,
-        isLocked: params.locked === true,
-        requiredKey: params.key || ''
+        isOpen: params.isOpen === true,
+        targetAngle: params.targetAngle || 0,
+        currentAngle: params.currentAngle || 0,
+        hingeSide: params.hinge || params.hingeSide || 'left',
+        isBiDirectional: params.bidir !== false && params.isBiDirectional !== false,
+        isLocked: params.locked === true || params.isLocked === true,
+        requiredKey: params.key || params.requiredKey || ''
       };
       doorMesh.userData = pivot.userData;
+      return pivot;
+    }
+
+    function buildInteractiveDoorEntity(params) {
+      const pivot = createDoorGroupInstance(params);
+      const name = pivot.name;
 
       scene.add(pivot);
       editorObjects[name] = pivot;
@@ -3540,6 +3556,7 @@
 
       showEditorNotification(`Created ${name}`);
       logConsole(`[DoorCreator] Created interactive door with bi-directional swing.`);
+      return pivot;
     }
 
     // 4. Standalone Lore Document Entity Builder
@@ -4079,6 +4096,11 @@
       redoStack: [],
       maxSteps: 50,
 
+      clear() {
+        this.undoStack = [];
+        this.redoStack = [];
+      },
+
       record(action) {
         this.undoStack.push(action);
         if (this.undoStack.length > this.maxSteps) this.undoStack.shift();
@@ -4234,40 +4256,266 @@
       }
     }
 
-    // PERSISTENCE TO RUST SQLITE DATABASE
+    // SCENE OBJECT SERIALIZATION & PERSISTENCE TO RUST SQLITE
+    function clearSceneUserObjects() {
+      const toRemove = [];
+      scene.children.forEach(obj => {
+        if (obj.userData && obj.userData.isUserObject) {
+          toRemove.push(obj);
+        } else if (obj.name && ['Default_Cube'].includes(obj.name)) {
+          toRemove.push(obj);
+        } else if (obj.name && (obj.name.startsWith('Door_') || obj.name.startsWith('Stateroom_Door_') || obj.name.startsWith('Main_') || obj.name.startsWith('Modular_Corridor_') || obj.name.startsWith('Terrain_') || obj.name.startsWith('Lore_') || obj.name.includes('_Copy_'))) {
+          toRemove.push(obj);
+        }
+      });
+
+      toRemove.forEach(obj => {
+        scene.remove(obj);
+        if (obj.name && editorObjects[obj.name]) {
+          delete editorObjects[obj.name];
+        }
+        removeHierarchyItem(obj.name);
+      });
+
+      currentSelectedObject = null;
+      if (typeof selectionWireframe !== 'undefined' && selectionWireframe) selectionWireframe.visible = false;
+      if (typeof gizmoGroup !== 'undefined' && gizmoGroup) gizmoGroup.visible = false;
+      if (typeof HistoryManager !== 'undefined' && HistoryManager.clear) HistoryManager.clear();
+    }
+
+    function serializeSceneObjects() {
+      const list = [];
+      scene.children.forEach(obj => {
+        if (obj.userData && obj.userData.isUserObject) {
+          const item = {
+            name: obj.name,
+            objType: obj.userData.objType || 'mesh',
+            position: { x: obj.position.x, y: obj.position.y, z: obj.position.z },
+            rotation: { x: obj.rotation.x, y: obj.rotation.y, z: obj.rotation.z },
+            scale: { x: obj.scale.x, y: obj.scale.y, z: obj.scale.z },
+            userData: { ...obj.userData }
+          };
+
+          if (obj.userData.objType === 'cube') {
+            item.color = (obj.material && obj.material.color) ? obj.material.color.getHex() : 0x38bdf8;
+          } else if (obj.userData.objType === 'door') {
+            item.doorParams = {
+              hinge: obj.userData.hingeSide || 'left',
+              bidir: obj.userData.isBiDirectional !== false,
+              locked: obj.userData.isLocked === true,
+              key: obj.userData.requiredKey || '',
+              isOpen: obj.userData.isOpen === true,
+              currentAngle: obj.userData.currentAngle || 0,
+              targetAngle: obj.userData.targetAngle || 0
+            };
+          } else if (obj.userData.objType === 'lore') {
+            item.loreParams = {
+              title: obj.userData.title || '',
+              body: obj.userData.text || '',
+              giveKey: obj.userData.giveItem || ''
+            };
+          } else if (obj.userData.objType === 'prefab') {
+            item.prefabName = obj.userData.prefabName || obj.name.replace(/_\d+$/, '');
+          }
+
+          list.push(item);
+        }
+      });
+      return list;
+    }
+
+    function restoreSceneObjects(objectsList) {
+      if (!Array.isArray(objectsList)) return;
+
+      objectsList.forEach(item => {
+        let obj = null;
+
+        if (item.objType === 'cube' || item.name === 'Default_Cube') {
+          const geo = new THREE.BoxGeometry(2, 2, 2);
+          const mat = new THREE.MeshStandardMaterial({
+            color: item.color !== undefined ? item.color : 0x38bdf8,
+            roughness: 0.3,
+            metalness: 0.2
+          });
+          obj = new THREE.Mesh(geo, mat);
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+          obj.name = item.name;
+          obj.userData = { ...(item.userData || {}), isUserObject: true, objType: 'cube' };
+
+        } else if (item.objType === 'door') {
+          const dp = item.doorParams || {};
+          obj = createDoorGroupInstance({
+            name: item.name,
+            hinge: dp.hinge || 'left',
+            bidir: dp.bidir !== false,
+            locked: dp.locked === true,
+            key: dp.key || ''
+          });
+          if (dp.isOpen) {
+            obj.userData.isOpen = true;
+            obj.userData.currentAngle = dp.currentAngle || 0;
+            obj.userData.targetAngle = dp.targetAngle || 0;
+            obj.rotation.y = obj.userData.currentAngle;
+          }
+
+        } else if (item.objType === 'lore') {
+          const lp = item.loreParams || {};
+          const geo = new THREE.BoxGeometry(0.35, 0.02, 0.5);
+          const mat = new THREE.MeshStandardMaterial({ color: 0xede0c8, roughness: 0.9 });
+          obj = new THREE.Mesh(geo, mat);
+          obj.name = item.name;
+          obj.userData = {
+            name: item.name,
+            isUserObject: true,
+            objType: 'lore',
+            type: 'inspect',
+            title: lp.title,
+            text: lp.body,
+            giveItem: lp.giveKey || null
+          };
+
+        } else if (item.objType === 'prefab') {
+          const baseName = item.prefabName || item.name.replace(/_\d+$/, '');
+          const sourceTemplate = prefabLibrary[baseName];
+          if (sourceTemplate) {
+            obj = sourceTemplate.clone(true);
+            obj.name = item.name;
+            obj.userData = { ...(sourceTemplate.userData || {}), ...(item.userData || {}), isUserObject: true, objType: 'prefab' };
+          }
+        }
+
+        if (obj) {
+          if (item.position) obj.position.set(item.position.x, item.position.y, item.position.z);
+          if (item.rotation) obj.rotation.set(item.rotation.x, item.rotation.y, item.rotation.z);
+          if (item.scale) obj.scale.set(item.scale.x, item.scale.y, item.scale.z);
+
+          scene.add(obj);
+          editorObjects[obj.name] = obj;
+        }
+      });
+    }
+
+    function spawnInitialDefaultCube() {
+      let cube = scene.getObjectByName('Default_Cube');
+      if (cube && cube.userData && cube.userData.isUserObject) return cube;
+
+      const geo = new THREE.BoxGeometry(2, 2, 2);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.2 });
+      cube = new THREE.Mesh(geo, mat);
+      cube.name = 'Default_Cube';
+      cube.position.set(0, 1, 0);
+      cube.castShadow = true;
+      cube.receiveShadow = true;
+      cube.userData = { name: 'Default_Cube', isUserObject: true, objType: 'cube' };
+      scene.add(cube);
+      editorObjects['Default_Cube'] = cube;
+      prefabLibrary['Default_Cube'] = cube.clone(true);
+      selectObject(cube);
+      return cube;
+    }
+
+    function rebuildHierarchyPane() {
+      const tree = document.getElementById('hierarchy-tree-pane');
+      if (!tree) return;
+
+      let html = `
+        <div class="tree-row" onclick="selectHierarchyItem('SunLight')">
+          <span class="tree-arrow">▪</span>
+          <span>Directional_SunLight</span>
+        </div>
+        <div class="tree-row">
+          <span class="tree-arrow">▪</span>
+          <span>Main_Camera</span>
+        </div>
+        <div class="tree-row">
+          <span class="tree-arrow">▪</span>
+          <span>Editor_Grid</span>
+        </div>
+      `;
+
+      Object.keys(editorObjects).forEach(name => {
+        if (['SunLight', 'EditorAmbient', 'EditorGrid', 'SnowParticles', 'Flashlight'].includes(name)) return;
+        const isSel = (currentSelectedObject && currentSelectedObject.name === name);
+        html += `
+          <div class="tree-row ${isSel ? 'selected' : ''}" id="hier-row-${name}" onclick="selectHierarchyItem('${name}')">
+            <span class="tree-arrow">▪</span>
+            <span style="font-weight:700; color:#38bdf8;">${name}</span>
+          </div>
+        `;
+      });
+
+      tree.innerHTML = html;
+    }
+
     async function saveSceneToCloud() {
+      if (!currentProject) {
+        showEditorNotification("No active project open. Select or create one from Project Hub.");
+        return;
+      }
+
       const statusEl = document.getElementById('footer-save-status');
-      statusEl.textContent = "Saving scene to SQLite database...";
+      if (statusEl) statusEl.textContent = `Saving "${currentProject.name}" to SQLite...`;
+
+      const serializedObjects = serializeSceneObjects();
 
       const sceneData = {
-        name: "DEEP: BELOW (Master Scene)",
-        version: "0.1.0",
-        activeScene: currentActiveScene,
+        name: currentProject.name,
+        template: currentProject.template || selectedTemplate || 'blank3d',
+        version: "1.0.0",
+        isInitialized: true,
+        saved_at: Date.now(),
         camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-        clock: { x: clockGroup.position.x, y: clockGroup.position.y, z: clockGroup.position.z },
-        door: { isOpen: doorPivot.userData.isOpen }
+        objects: serializedObjects
       };
 
+      const token = localStorage.getItem('nyx_token') || 'demo';
+
       try {
-        const resp = await fetch('/api/projects', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('nyx_token') || 'demo'}`
-          },
-          body: JSON.stringify({
-            name: "DEEP: BELOW Scene",
-            data_json: JSON.stringify(sceneData)
-          })
-        });
-        if (resp.ok) {
-          statusEl.textContent = `✔ Scene Saved to SQLite (${new Date().toLocaleTimeString()})`;
-          logConsole("[CloudStorage] Scene state saved to /srv/nyx-engine/data/engine.db");
+        let resp;
+        if (currentProject.id && !currentProject.id.startsWith('local_')) {
+          // UPDATE in-place using PUT
+          resp = await fetch(`/api/projects/${currentProject.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: currentProject.name,
+              data_json: JSON.stringify(sceneData)
+            })
+          });
         } else {
-          statusEl.textContent = "Scene cached locally (Login for cloud persistence)";
+          // CREATE new project record using POST
+          resp = await fetch('/api/projects', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: currentProject.name,
+              data_json: JSON.stringify(sceneData)
+            })
+          });
+          if (resp.ok) {
+            const created = await resp.json();
+            currentProject.id = created.id;
+          }
+        }
+
+        if (resp.ok) {
+          if (statusEl) statusEl.textContent = `✔ Project "${currentProject.name}" Saved (${new Date().toLocaleTimeString()})`;
+          showEditorNotification(`Saved "${currentProject.name}" (${serializedObjects.length} objects)`);
+          logConsole(`[CloudStorage] Project "${currentProject.name}" (${currentProject.id}) saved to SQLite.`);
+        } else {
+          if (statusEl) statusEl.textContent = "Saved locally (Cloud auth required)";
+          showEditorNotification(`Cached "${currentProject.name}" locally`);
         }
       } catch (e) {
-        statusEl.textContent = "Scene state cached locally";
+        if (statusEl) statusEl.textContent = "Saved locally";
+        showEditorNotification(`Cached "${currentProject.name}" locally`);
       }
     }
 
@@ -4299,12 +4547,16 @@
         lastTime = now;
       }
 
-      // Smooth Door Hinge Animation
-      const doorData = doorPivot.userData;
-      if (Math.abs(doorData.currentAngle - doorData.targetAngle) > 0.01) {
-        doorData.currentAngle += (doorData.targetAngle - doorData.currentAngle) * 0.12;
-        doorPivot.rotation.y = doorData.currentAngle;
-      }
+      // Smooth Door Hinge Animation for ALL doors in scene
+      scene.traverse(obj => {
+        if (obj.userData && obj.userData.type === 'door' && obj.isGroup) {
+          const d = obj.userData;
+          if (Math.abs(d.currentAngle - d.targetAngle) > 0.005) {
+            d.currentAngle += (d.targetAngle - d.currentAngle) * 0.12;
+            obj.rotation.y = d.currentAngle;
+          }
+        }
+      });
 
       // Smooth Grandfather Clock Pendulum Animation
       pendulumMesh.rotation.z = Math.sin(time * 3.14) * 0.15;
@@ -4553,11 +4805,24 @@
       const name = document.getElementById('unity-new-proj-name').value.trim() || 'Untitled_Project';
       const token = localStorage.getItem('nyx_token');
 
+      const initialObjects = [];
+      if (selectedTemplate === 'blank3d') {
+        initialObjects.push({
+          name: 'Default_Cube',
+          objType: 'cube',
+          position: { x: 0, y: 1, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          scale: { x: 1, y: 1, z: 1 },
+          color: 0x38bdf8
+        });
+      }
+
       const initialData = {
         name: name,
         template: selectedTemplate,
+        isInitialized: true,
         created_at: Date.now(),
-        objects: []
+        objects: initialObjects
       };
 
       try {
@@ -4588,6 +4853,8 @@
     }
 
     async function openProject(id, name, templateOverride) {
+      clearSceneUserObjects();
+
       currentProject = { id, name };
       document.title = `Nyx Studio 3D — [${name}]`;
       document.getElementById('project-hub-overlay').classList.add('hidden');
@@ -4608,7 +4875,18 @@
         }
       } catch (e) {}
 
+      currentProject.template = tpl;
       applySceneTemplate(tpl, data);
+
+      if (data && data.isInitialized && Array.isArray(data.objects)) {
+        restoreSceneObjects(data.objects);
+        logConsole(`[ProjectHub] Restored ${data.objects.length} saved objects for "${name}".`);
+      } else if (tpl === 'blank3d') {
+        spawnInitialDefaultCube();
+        logConsole(`[ProjectHub] Initialized new Blank 3D project with Default_Cube.`);
+      }
+
+      rebuildHierarchyPane();
       logConsole(`[ProjectHub] Loaded project "${name}" (${id}) with template "${tpl}"`);
     }
 
@@ -4673,80 +4951,11 @@
       }
       amb.visible = true;
 
-      // 5. Clean Default Cube
-      let cube = scene.getObjectByName('Default_Cube');
-      if (!cube) {
-        const geo = new THREE.BoxGeometry(2, 2, 2);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.2 });
-        cube = new THREE.Mesh(geo, mat);
-        cube.name = 'Default_Cube';
-        cube.position.set(0, 1, 0);
-        scene.add(cube);
-        editorObjects['Default_Cube'] = cube;
-        prefabLibrary['Default_Cube'] = cube.clone(true);
-      }
-      cube.visible = true;
-
-      selectObject(cube);
-      if (typeof gizmoGroup !== 'undefined') {
-        gizmoGroup.visible = true;
-        gizmoGroup.position.copy(cube.position);
-      }
-
-      camera.position.set(0, 4, 8);
-      camera.lookAt(0, 1, 0);
-
-      // 6. Rebuild Hierarchy UI
-      const tree = document.getElementById('hierarchy-tree-pane');
-      if (tree) {
-        tree.innerHTML = `
-          <div class="tree-row selected" onclick="selectHierarchyItem('Default_Cube')">
-            <span class="tree-arrow">▪</span>
-            <span style="font-weight:700; color:#38bdf8;">Default_Cube</span>
-          </div>
-          <div class="tree-row" onclick="selectHierarchyItem('SunLight')">
-            <span class="tree-arrow">▪</span>
-            <span>Directional_SunLight</span>
-          </div>
-          <div class="tree-row">
-            <span class="tree-arrow">▪</span>
-            <span>Main_Camera</span>
-          </div>
-          <div class="tree-row">
-            <span class="tree-arrow">▪</span>
-            <span>Editor_Grid</span>
-          </div>
-        `;
-      }
-
-      // 7. Update Inspector details
-      const iObjName = document.getElementById('insp-obj-name');
-      if (iObjName) iObjName.value = 'Default_Cube';
-      const iTag = document.getElementById('insp-tag');
-      if (iTag) iTag.textContent = 'Untagged';
-      const iMeshVal = document.getElementById('insp-mesh-val');
-      if (iMeshVal) iMeshVal.value = 'Box_Geometry (Mesh)';
-      const iMat = document.getElementById('comp-titanic-material');
-      if (iMat) iMat.style.display = 'none';
-      const iLore = document.getElementById('comp-titanic-lore');
-      if (iLore) iLore.style.display = 'none';
-
-      if (document.getElementById('insp-pos-x')) document.getElementById('insp-pos-x').value = '0.00';
-      if (document.getElementById('insp-pos-y')) document.getElementById('insp-pos-y').value = '1.00';
-      if (document.getElementById('insp-pos-z')) document.getElementById('insp-pos-z').value = '0.00';
-      if (document.getElementById('insp-rot-x')) document.getElementById('insp-rot-x').value = '0.0';
-      if (document.getElementById('insp-rot-y')) document.getElementById('insp-rot-y').value = '0.0';
-      if (document.getElementById('insp-rot-z')) document.getElementById('insp-rot-z').value = '0.0';
-      if (document.getElementById('insp-scale-x')) document.getElementById('insp-scale-x').value = '1.00';
-      if (document.getElementById('insp-scale-y')) document.getElementById('insp-scale-y').value = '1.00';
-      if (document.getElementById('insp-scale-z')) document.getElementById('insp-scale-z').value = '1.00';
-
-      const stat = document.getElementById('footer-sel-obj');
-      if (stat) stat.textContent = 'Default_Cube';
+      // Clean inspector details for initial state
       const fScene = document.getElementById('footer-scene-name');
       if (fScene) fScene.textContent = currentProject ? currentProject.name : 'Blank_3D_Scene';
 
-      logConsole('[Scene] Clean 3D workspace active. Ready to build from scratch.');
+      logConsole('[Scene] Clean 3D workspace active. Ready to build.');
     }
 
     function buildDeepBelowScene() {
@@ -4776,7 +4985,13 @@
           headers: { 'Authorization': `Bearer ${localStorage.getItem('nyx_token')}` }
         });
         if (resp.ok) {
-          loadUserProjects();
+          if (currentProject && currentProject.id === id) {
+            clearSceneUserObjects();
+            currentProject = null;
+            document.title = `Nyx Studio 3D — [Project Hub]`;
+          }
+          await loadUserProjects();
+          showEditorNotification("Project removed successfully.");
         }
       } catch (e) {
         alert('Failed to delete project.');
