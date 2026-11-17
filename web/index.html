@@ -952,8 +952,31 @@
       transform: translateY(0);
     }
 
+  
+    /* Drag & Drop Asset Import Overlay */
+    #drop-zone-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 14, 22, 0.88);
+      border: 3px dashed #206095;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      pointer-events: none;
+      text-align: center;
+    }
+    #drop-zone-overlay.active { display: flex; }
+    .drop-hint { font-size: 12px; color: #888888; margin-top: 6px; }
+
   </style>
   <script src="/libs/three.min.js"></script>
+  <script src="/libs/GLTFLoader.js"></script>
+  <script src="/libs/OBJLoader.js"></script>
 </head>
 <body>
 
@@ -1116,8 +1139,25 @@
         <div class="dropdown-item" onclick="alert('Exporting project standalone binary...')">Build Standalone...</div>
       </div>
     </div>
-    <div class="menu-btn">Edit</div>
-    <div class="menu-btn">Assets</div>
+    <div class="menu-btn">
+      Edit
+      <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="HistoryManager.undo()">Undo (Ctrl+Z)</div>
+        <div class="dropdown-item" onclick="HistoryManager.redo()">Redo (Ctrl+Y)</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" onclick="duplicateSelectedObject()">Duplicate (Ctrl+D)</div>
+        <div class="dropdown-item" onclick="deleteSelectedObject()">Delete (Del)</div>
+      </div>
+    </div>
+    <div class="menu-btn">
+      Assets
+      <div class="dropdown-menu">
+        <div class="dropdown-item" onclick="triggerAssetImport()">Import New Asset... (.glb, .gltf, .obj)</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" onclick="loadAssetFolder('Scenes')">Show Scenes</div>
+        <div class="dropdown-item" onclick="loadAssetFolder('Prefabs')">Show Prefabs & Models</div>
+      </div>
+    </div>
     <div class="menu-btn">
       GameObject
       <div class="dropdown-menu">
@@ -1688,6 +1728,7 @@
       targetAngle: 0,
       currentAngle: 0
     };
+    doorMesh.userData = doorPivot.userData;
     corridorGroup.add(doorPivot);
 
     worldGroup.add(corridorGroup);
@@ -1723,29 +1764,47 @@
     const selectionWireframe = new THREE.BoxHelper(currentSelectedObject, 0x38bdf8);
     scene.add(selectionWireframe);
 
-    // === INTERACTIVE 3D TRANSFORM GIZMO (Red X, Green Y, Blue Z in Scene View) ===
+    // === INTERACTIVE 3D TRANSFORM GIZMO (Red X, Green Y, Blue Z with Cones) ===
     const gizmoGroup = new THREE.Group();
-    
-    // X Arrow (Red)
-    const arrowX = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0xf87171, depthTest: false }));
-    arrowX.rotation.z = -Math.PI / 2; arrowX.position.x = 0.5;
-    arrowX.userData = { axis: 'x' };
+    gizmoGroup.name = 'TransformGizmo';
+    gizmoGroup.renderOrder = 9999;
+
+    function createGizmoArrow(colorHex, axis) {
+      const g = new THREE.Group();
+      g.userData = { axis: axis };
+
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex, depthTest: false, transparent: true, opacity: 0.95 });
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.0, 12), mat);
+      shaft.position.y = 0.5;
+      shaft.renderOrder = 9999;
+      shaft.userData = { axis: axis };
+      g.add(shaft);
+
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 16), mat);
+      cone.position.y = 1.15;
+      cone.renderOrder = 9999;
+      cone.userData = { axis: axis };
+      g.add(cone);
+
+      if (axis === 'x') g.rotation.z = -Math.PI / 2;
+      else if (axis === 'z') g.rotation.x = Math.PI / 2;
+
+      return g;
+    }
+
+    const arrowX = createGizmoArrow(0xf87171, 'x'); // Red X
+    const arrowY = createGizmoArrow(0x34d399, 'y'); // Green Y
+    const arrowZ = createGizmoArrow(0x38bdf8, 'z'); // Blue Z
+
     gizmoGroup.add(arrowX);
-
-    // Y Arrow (Green)
-    const arrowY = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false }));
-    arrowY.position.y = 0.5;
-    arrowY.userData = { axis: 'y' };
     gizmoGroup.add(arrowY);
-
-    // Z Arrow (Blue)
-    const arrowZ = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false }));
-    arrowZ.rotation.x = Math.PI / 2; arrowZ.position.z = 0.5;
-    arrowZ.userData = { axis: 'z' };
     gizmoGroup.add(arrowZ);
 
-    gizmoGroup.renderOrder = 9999;
-    gizmoGroup.position.copy(currentSelectedObject.position);
+    const centerSphere = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false }));
+    centerSphere.userData = { axis: 'center' };
+    centerSphere.renderOrder = 9999;
+    gizmoGroup.add(centerSphere);
+
     scene.add(gizmoGroup);
 
     let isDraggingGizmo = false;
@@ -1893,9 +1952,12 @@
         document.getElementById('scene-axis-gizmo').style.display = 'none';
         document.getElementById('scene-nav-hint').style.display = 'none';
         document.getElementById('strip-mode-label').textContent = 'Mode: First-Person Gameplay';
-        gridHelper.visible = false;
+        if (typeof gridHelper !== 'undefined') gridHelper.visible = false;
+        const gridObj = scene.getObjectByName('EditorGrid');
+        if (gridObj) gridObj.visible = false;
         selectionWireframe.visible = false;
         gizmoGroup.visible = false;
+        deselectObject();
         container.requestPointerLock();
       } else {
         document.getElementById('gameplay-overlay').style.display = 'none';
@@ -1928,30 +1990,39 @@
           isMiddleMouseDown = true;
           canvas.style.cursor = 'grab';
         } else if (e.button === 0) {
-          // Check gizmo hit first!
           raycaster.setFromCamera(mousePos, camera);
-          const gizmoHits = raycaster.intersectObjects([arrowX, arrowY, arrowZ], true);
-          if (gizmoHits.length > 0) {
-            isDraggingGizmo = true;
-            activeGizmoAxis = gizmoHits[0].object.userData.axis;
-            if (currentSelectedObject) {
+
+          // 1. Check Gizmo handles hit first!
+          if (gizmoGroup.visible && currentSelectedObject) {
+            const gizmoHits = raycaster.intersectObjects(gizmoGroup.children, true);
+            if (gizmoHits.length > 0) {
+              isDraggingGizmo = true;
+              let h = gizmoHits[0].object;
+              while (h && !h.userData.axis && h.parent !== gizmoGroup) h = h.parent;
+              activeGizmoAxis = h.userData.axis;
               gizmoDragStartPos = currentSelectedObject.position.clone();
+              return;
             }
-            return;
           }
 
-          // Otherwise select object
-          const intersects = raycaster.intersectObjects([clockGroup, doorPivot, letterMesh, subHull, leftWall, rightWall, floorMesh], true);
+          // 2. Raycast against all visible selectable meshes in scene!
+          const selectables = getSelectableObjects();
+          const intersects = raycaster.intersectObjects(selectables, true);
           if (intersects.length > 0) {
             let hitObj = intersects[0].object;
-            while (hitObj.parent && hitObj.parent !== corridorGroup && hitObj.parent !== subCockpitGroup && hitObj.parent !== worldGroup) {
+            while (hitObj.parent && hitObj.parent !== scene && hitObj.parent !== worldGroup && hitObj.parent !== corridorGroup && hitObj.parent !== subCockpitGroup) {
               hitObj = hitObj.parent;
             }
             selectObject(hitObj);
+          } else {
+            deselectObject();
           }
         }
       } else {
         container.requestPointerLock();
+        if (activeInteractable) {
+          handleInteraction();
+        }
       }
     });
 
@@ -2040,81 +2111,121 @@
       }
     }, { passive: false });
 
-    // KEYBOARD LISTENERS & SHORTCUTS (UNITY STANDARD)
+    // === STRICT INPUT CONTEXT MANAGER (ENGINE vs RUNTIME ISOLATION) ===
     window.addEventListener('keydown', (e) => {
+      // 1. INPUT CONTEXT: Typing inside Input or Textarea fields
       const activeEl = document.activeElement;
       const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+      if (isInput) return; // Do not intercept typing
 
-      // --- WORKSTATION GLOBAL SHORTCUTS (When not typing) ---
-      if (!isInput) {
-        // Ctrl + Z -> Undo
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+      // 2. GLOBAL KEYS: Available across both Editor and Game modes
+      // F5 -> Toggle Play/Stop Mode
+      if (e.key === 'F5') {
+        e.preventDefault();
+        togglePlayMode();
+        return;
+      }
+
+      // Escape -> Exit Pointer Lock or Close Lore Modal
+      if (e.key === 'Escape') {
+        closeLoreModal();
+        if (document.exitPointerLock) document.exitPointerLock();
+        return;
+      }
+
+      // 3. CONTEXT: GAME PLAY MODE (First-Person Runtime)
+      // When in Game mode, ALL EDITOR SHORTCUTS (W/E/R/Q, Gizmo, Ctrl+Z, Delete) MUST BE COMPLETELY DISABLED!
+      if (currentViewMode === 'game') {
+        const k = e.key.toLowerCase();
+
+        // Player WASD Walking
+        if (k === 'w' || k === 'arrowup') moveKeys.w = true;
+        if (k === 's' || k === 'arrowdown') moveKeys.s = true;
+        if (k === 'a' || k === 'arrowleft') moveKeys.a = true;
+        if (k === 'd' || k === 'arrowright') moveKeys.d = true;
+        if (e.shiftKey) moveKeys.shift = true;
+
+        // Player Interaction Key [E] (Opens Doors, Inspects Lore)
+        if (k === 'e') {
+          e.preventDefault();
+          if (activeInteractable) {
+            handleInteraction();
+          }
+          return;
+        }
+
+        // Player Flashlight Toggle [F]
+        if (k === 'f') {
+          e.preventDefault();
+          toggleFlashlight();
+          return;
+        }
+
+        // Return early so NO editor tool shortcut is triggered during gameplay!
+        return;
+      }
+
+      // 4. CONTEXT: SCENE EDITOR MODE (3D Workstation Authoring)
+      if (currentViewMode === 'scene') {
+        const k = e.key.toLowerCase();
+
+        // Flying Editor Camera WASD/QE (Active only when holding Right-Click)
+        if (isRightMouseDown) {
+          if (k === 'w' || k === 'arrowup') moveKeys.w = true;
+          if (k === 's' || k === 'arrowdown') moveKeys.s = true;
+          if (k === 'a' || k === 'arrowleft') moveKeys.a = true;
+          if (k === 'd' || k === 'arrowright') moveKeys.d = true;
+          if (k === 'q') moveKeys.q = true;
+          if (k === 'e') moveKeys.e = true;
+          if (e.shiftKey) moveKeys.shift = true;
+          return;
+        }
+
+        // Workstation Tool & Scene Shortcuts (Active when NOT holding Right-Click)
+        // Undo (Ctrl + Z)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && k === 'z') {
           e.preventDefault();
           HistoryManager.undo();
           return;
         }
-        // Ctrl + Y or Ctrl + Shift + Z -> Redo
-        if (((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
-            ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+        // Redo (Ctrl + Y or Ctrl + Shift + Z)
+        if (((e.ctrlKey || e.metaKey) && k === 'y') ||
+            ((e.ctrlKey || e.metaKey) && e.shiftKey && k === 'z')) {
           e.preventDefault();
           HistoryManager.redo();
           return;
         }
-        // Ctrl + D -> Duplicate GameObject
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        // Duplicate (Ctrl + D)
+        if ((e.ctrlKey || e.metaKey) && k === 'd') {
           e.preventDefault();
           duplicateSelectedObject();
           return;
         }
-        // Delete or Backspace -> Delete GameObject
+        // Delete (Delete / Backspace)
         if (e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
           deleteSelectedObject();
           return;
         }
-        // Ctrl + S -> Save Project to SQLite
-        if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        // Save Scene (Ctrl + S)
+        if ((e.ctrlKey || e.metaKey) && k === 's') {
           e.preventDefault();
           saveSceneToCloud();
           return;
         }
-        // F -> Focus Camera on selected object
-        if ((e.key === 'f' || e.key === 'F') && currentViewMode === 'scene') {
+        // Focus Selected (F)
+        if (k === 'f') {
           focusSelectedObject();
           return;
         }
-        // F5 -> Toggle Play mode
-        if (e.key === 'F5') {
-          e.preventDefault();
-          togglePlayMode();
-          return;
-        }
-        // Escape
-        if (e.key === 'Escape') {
-          closeLoreModal();
-          return;
-        }
 
-        // Tool Switching W, E, R, Q (When NOT holding right-click fly-cam)
-        if (!isRightMouseDown) {
-          if (e.key === 'w' || e.key === 'W') { setGizmoTool('move'); showEditorNotification('Move Tool (W)'); return; }
-          if (e.key === 'e' || e.key === 'E') { setGizmoTool('rotate'); showEditorNotification('Rotate Tool (E)'); return; }
-          if (e.key === 'r' || e.key === 'R') { setGizmoTool('scale'); showEditorNotification('Scale Tool (R)'); return; }
-          if (e.key === 'q' || e.key === 'Q') { setGizmoTool('hand'); showEditorNotification('Hand Tool (Q)'); return; }
-        }
+        // Transform Tool Hotkeys: W (Move), E (Rotate), R (Scale), Q (Hand)
+        // Only active in Scene Editor!
+        if (k === 'w') { setGizmoTool('move'); showEditorNotification('Move Tool (W)'); return; }
+        if (k === 'e') { setGizmoTool('rotate'); showEditorNotification('Rotate Tool (E)'); return; }
+        if (k === 'r') { setGizmoTool('scale'); showEditorNotification('Scale Tool (R)'); return; }
+        if (k === 'q') { setGizmoTool('hand'); showEditorNotification('Hand Tool (Q)'); return; }
       }
-
-      // --- CAMERA NAVIGATION KEYS (When holding Right-Click or in Game Mode) ---
-      const k = e.key.toLowerCase();
-      if (k === 'w' || k === 'arrowup') moveKeys.w = true;
-      if (k === 's' || k === 'arrowdown') moveKeys.s = true;
-      if (k === 'a' || k === 'arrowleft') moveKeys.a = true;
-      if (k === 'd' || k === 'arrowright') moveKeys.d = true;
-      if (k === 'q') moveKeys.q = true;
-      if (k === 'e' && currentViewMode === 'game' && activeInteractable) handleInteraction();
-      else if (k === 'e') moveKeys.e = true;
-      if (e.shiftKey) moveKeys.shift = true;
-      if (k === 'f' && currentViewMode === 'game') toggleFlashlight();
     });
 
     window.addEventListener('keyup', (e) => {
@@ -2128,17 +2239,55 @@
       if (!e.shiftKey) moveKeys.shift = false;
     });
 
+    function getSelectableObjects() {
+      const list = [];
+      scene.traverse(obj => {
+        if (obj.isMesh && obj.visible) {
+          if (obj.name === 'EditorGrid' || obj.name === 'SnowParticles') return;
+          let p = obj.parent;
+          let isGizmo = false;
+          while (p) {
+            if (p === gizmoGroup || p === selectionWireframe) { isGizmo = true; break; }
+            p = p.parent;
+          }
+          if (!isGizmo) list.push(obj);
+        }
+      });
+      return list;
+    }
+
     function selectObject(obj) {
+      if (!obj) {
+        deselectObject();
+        return;
+      }
       currentSelectedObject = obj;
       selectionWireframe.setFromObject(obj);
       selectionWireframe.visible = (currentViewMode === 'scene');
       gizmoGroup.position.copy(obj.position);
+      gizmoGroup.visible = (currentViewMode === 'scene');
       
       const name = obj.userData?.name || obj.name || "GameObject";
-      document.getElementById('insp-obj-name').value = name;
-      document.getElementById('footer-sel-obj').textContent = name;
+      const nameEl = document.getElementById('insp-obj-name');
+      if (nameEl) nameEl.value = name;
+      const footerEl = document.getElementById('footer-sel-obj');
+      if (footerEl) footerEl.textContent = name;
+
+      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => {
+        if (row.textContent.trim().includes(name)) row.classList.add('selected');
+        else row.classList.remove('selected');
+      });
 
       syncInspectorCoords();
+    }
+
+    function deselectObject() {
+      currentSelectedObject = null;
+      selectionWireframe.visible = false;
+      gizmoGroup.visible = false;
+      const fEl = document.getElementById('footer-sel-obj');
+      if (fEl) fEl.textContent = 'None';
+      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => row.classList.remove('selected'));
     }
 
     function syncInspectorCoords() {
@@ -2267,13 +2416,21 @@
     }
 
     function selectHierarchyItem(name) {
-      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(r => r.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
-      if (name.includes('Clock')) selectObject(clockGroup);
-      else if (name.includes('Door')) selectObject(doorPivot);
-      else if (name.includes('Letter')) selectObject(letterMesh);
-      else if (name.includes('Submersible')) selectObject(subHull);
-      else if (name.includes('Corridor')) selectObject(corridorGroup);
+      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(r => {
+        if (r.textContent.trim().includes(name)) r.classList.add('selected');
+        else r.classList.remove('selected');
+      });
+
+      let target = editorObjects[name] || scene.getObjectByName(name);
+      if (target) {
+        selectObject(target);
+        return;
+      }
+      if (name.includes('Clock') && typeof clockGroup !== 'undefined') selectObject(clockGroup);
+      else if (name.includes('Door') && typeof doorPivot !== 'undefined') selectObject(doorPivot);
+      else if (name.includes('Letter') && typeof letterMesh !== 'undefined') selectObject(letterMesh);
+      else if (name.includes('Submersible') && typeof subHull !== 'undefined') selectObject(subHull);
+      else if (name.includes('Corridor') && typeof corridorGroup !== 'undefined') selectObject(corridorGroup);
     }
 
     
@@ -2323,6 +2480,151 @@
         ]
       }
     };
+
+    
+    // === 3D MODEL ASSET IMPORTER (GLTF / GLB / OBJ) ===
+    function triggerAssetImport() {
+      const input = document.getElementById('asset-file-input');
+      if (input) input.click();
+    }
+
+    function handleFileSelect(event) {
+      const files = event.target.files;
+      if (files && files.length > 0) {
+        loadModelFile(files[0]);
+      }
+      event.target.value = '';
+    }
+
+    function registerAssetToBrowser(name, fileName, type) {
+      const tpl = (currentProject && currentProject.template) || 'blank3d';
+      if (!projectTemplatesAssets[tpl]) projectTemplatesAssets[tpl] = {};
+      if (!projectTemplatesAssets[tpl]['Prefabs']) projectTemplatesAssets[tpl]['Prefabs'] = [];
+      projectTemplatesAssets[tpl]['Prefabs'].push({
+        name: `${name}.prefab`,
+        type: 'Prefab / Model',
+        desc: fileName
+      });
+      loadAssetFolder(activeAssetFolder || 'Prefabs');
+    }
+
+    function loadModelFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const baseName = file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]/g, '_');
+
+      showEditorNotification(`Loading ${file.name}...`);
+      logConsole(`[AssetImporter] Importing file: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+
+      const reader = new FileReader();
+
+      if (ext === 'glb' || ext === 'gltf') {
+        reader.onload = function(e) {
+          const buffer = e.target.result;
+          const loader = new THREE.GLTFLoader();
+          loader.parse(buffer, '', (gltf) => {
+            const model = gltf.scene;
+            integrateLoadedModel(model, baseName, file.name);
+          }, (err) => {
+            alert('Failed to parse GLTF/GLB model: ' + err.message);
+            logConsole(`[AssetImporter] Error parsing GLTF: ${err.message}`);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      } else if (ext === 'obj') {
+        reader.onload = function(e) {
+          const text = e.target.result;
+          const loader = new THREE.OBJLoader();
+          try {
+            const model = loader.parse(text);
+            integrateLoadedModel(model, baseName, file.name);
+          } catch(err) {
+            alert('Failed to parse OBJ model: ' + err.message);
+            logConsole(`[AssetImporter] Error parsing OBJ: ${err.message}`);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        alert('Supported 3D model formats are .glb, .gltf, and .obj');
+      }
+    }
+
+    function integrateLoadedModel(model, baseName, fileName) {
+      model.name = baseName;
+      model.userData = { name: baseName, isImported: true };
+
+      // Auto-fit scale & center model
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 6 || maxDim < 0.2) {
+        const s = 2.5 / (maxDim || 1);
+        model.scale.set(s, s, s);
+      }
+
+      // Recompute bounding box and place on floor (Y = 0)
+      const newBox = new THREE.Box3().setFromObject(model);
+      const center = newBox.getCenter(new THREE.Vector3());
+      model.position.set(-center.x, -newBox.min.y, -center.z);
+
+      // Enable shadows and PBR
+      model.traverse(node => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material) {
+            node.material.roughness = 0.4;
+          }
+        }
+      });
+
+      scene.add(model);
+      editorObjects[baseName] = model;
+      addHierarchyItem(baseName);
+      selectObject(model);
+      focusSelectedObject();
+
+      registerAssetToBrowser(baseName, fileName, 'Model');
+
+      HistoryManager.record({
+        name: `Import ${baseName}`,
+        undo() {
+          scene.remove(model);
+          delete editorObjects[baseName];
+          removeHierarchyItem(baseName);
+          deselectObject();
+        },
+        redo() {
+          scene.add(model);
+          editorObjects[baseName] = model;
+          addHierarchyItem(baseName);
+          selectObject(model);
+        }
+      });
+
+      showEditorNotification(`Imported: ${baseName}`);
+      logConsole(`[AssetImporter] Successfully integrated model "${baseName}" into scene.`);
+    }
+
+    // Drag and Drop files onto window
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      document.getElementById('drop-zone-overlay').classList.add('active');
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
+        document.getElementById('drop-zone-overlay').classList.remove('active');
+      }
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.getElementById('drop-zone-overlay').classList.remove('active');
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        loadModelFile(files[0]);
+      }
+    });
 
     function renderProjectAssetBrowser(templateKey) {
       const tpl = templateKey || 'blank3d';
@@ -2607,6 +2909,15 @@
     const valFps = document.getElementById('val-fps');
 
     function animate() {
+      // Dynamic screen-space scale for Transform Gizmo
+      if (gizmoGroup.visible && currentViewMode === 'scene') {
+        const dist = camera.position.distanceTo(gizmoGroup.position);
+        const s = Math.max(0.1, dist * 0.13);
+        gizmoGroup.scale.set(s, s, s);
+      }
+      if (selectionWireframe.visible && currentSelectedObject) {
+        selectionWireframe.update();
+      }
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
@@ -3164,5 +3475,10 @@
 
   </script>
   <div id="editor-toast">Notification</div>
+  <div id="drop-zone-overlay">
+    <div>Drop 3D Model to Import into Nyx Engine</div>
+    <div class="drop-hint">Supports .glb, .gltf, and .obj formats</div>
+  </div>
+  <input type="file" id="asset-file-input" accept=".glb,.gltf,.obj" style="display:none;" onchange="handleFileSelect(event)">
 </body>
 </html>
