@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 bincode = { workspace = true }
+
+rapier3d = "0.22.0"
