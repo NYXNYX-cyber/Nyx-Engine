@@ -43,50 +43,77 @@
 
     /* TOP MENU BAR */
     #menu-bar {
-      height: 22px;
+      height: 24px;
       background: var(--bg-menu);
       border-bottom: 1px solid var(--border-outer);
       display: flex;
-      align-items: center;
-      padding: 0 6px;
-      gap: 2px;
+      align-items: stretch;
+      padding: 0 4px;
+      gap: 1px;
       flex-shrink: 0;
       position: relative;
       z-index: 50;
     }
     .menu-btn {
-      padding: 2px 7px;
+      padding: 0 9px;
       color: var(--text-muted);
       cursor: pointer;
-      border-radius: 2px;
       font-size: 11px;
       position: relative;
+      display: flex;
+      align-items: center;
+      user-select: none;
     }
-    .menu-btn:hover { background: var(--bg-hover); color: var(--text-bright); }
+    .menu-btn:hover, .menu-btn.active {
+      background: var(--bg-hover);
+      color: var(--text-bright);
+    }
     .dropdown-menu {
       position: absolute;
-      top: 22px; left: 0;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-inner);
-      box-shadow: 0 8px 16px rgba(0,0,0,0.8);
-      border-radius: 2px;
-      min-width: 160px;
+      top: 100%;
+      left: 0;
+      background: #202020;
+      border: 1px solid #363636;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.85);
+      border-radius: 0 0 3px 3px;
+      min-width: 185px;
       display: none;
       flex-direction: column;
       padding: 4px 0;
-      z-index: 100;
+      z-index: 1000;
     }
-    .menu-btn:hover .dropdown-menu { display: flex; }
+    /* Invisible hover bridge to eliminate any gap between button and menu */
+    .dropdown-menu::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+    }
+    .menu-btn:hover .dropdown-menu,
+    .menu-btn.active .dropdown-menu {
+      display: flex;
+    }
     .dropdown-item {
-      padding: 4px 12px;
-      color: var(--text-main);
+      padding: 6px 14px;
+      color: #cccccc;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      font-size: 11px;
+      white-space: nowrap;
     }
-    .dropdown-item:hover { background: var(--bg-selected); color: #fff; }
-    .dropdown-sep { height: 1px; background: var(--border-inner); margin: 3px 0; }
+    .dropdown-item:hover {
+      background: #206095;
+      color: #ffffff;
+    }
+    .dropdown-sep {
+      height: 1px;
+      background: #2d2d2d;
+      margin: 4px 0;
+    }
 
     /* TOOLBAR */
     #main-toolbar {
@@ -4812,7 +4839,55 @@
     }
 
     // Run check on load
+    
+    // === NATIVE WORKSTATION MENU BAR CONTROLLER ===
+    let isMenuSystemActive = false;
+
+    function initMenuBarSystem() {
+      const menuBtns = document.querySelectorAll('#menu-bar .menu-btn');
+      menuBtns.forEach(btn => {
+        const dropdown = btn.querySelector('.dropdown-menu');
+        if (!dropdown) return;
+
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (btn.classList.contains('active')) {
+            closeAllMenus();
+          } else {
+            closeAllMenus();
+            btn.classList.add('active');
+            isMenuSystemActive = true;
+          }
+        });
+
+        btn.addEventListener('mouseenter', () => {
+          if (isMenuSystemActive) {
+            closeAllMenus();
+            btn.classList.add('active');
+            isMenuSystemActive = true;
+          }
+        });
+      });
+
+      // Close menu when clicking outside or clicking any dropdown item
+      window.addEventListener('click', () => {
+        closeAllMenus();
+      });
+
+      document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+          setTimeout(closeAllMenus, 50);
+        });
+      });
+    }
+
+    function closeAllMenus() {
+      document.querySelectorAll('#menu-bar .menu-btn').forEach(b => b.classList.remove('active'));
+      isMenuSystemActive = false;
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
+      initMenuBarSystem();
       checkAuthAndInitHub();
     });
 
