@@ -9,10 +9,12 @@
     <a href="https://github.com/dimforge/rapier"><img src="https://img.shields.io/badge/physics-Rapier3D_0.22-blue?style=flat-square" alt="Rapier3D" /></a>
     <a href="https://tokio.rs"><img src="https://img.shields.io/badge/async-Tokio_60Hz-purple?style=flat-square" alt="Tokio" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue?style=flat-square" alt="License" /></a>
+    <a href="BENCHMARKS.md"><img src="https://img.shields.io/badge/benchmarks-42M_entities%2Fsec-success?style=flat-square" alt="Benchmarks" /></a>
   </p>
 
   <p>
     <a href="https://nyxstudios.site">Web Portal</a> •
+    <a href="BENCHMARKS.md">Benchmarks</a> •
     <a href="#-quick-start">Quick Start</a> •
     <a href="#-architectural-highlights">Architecture</a> •
     <a href="#-features--roadmap">Roadmap</a>
@@ -57,6 +59,23 @@ Nyx-Engine/
     ├── libs/                   # Three.js & client dependencies
     └── index.html              # Full Studio Editor UI
 ```
+
+---
+
+
+## 📊 Verified Benchmarks & Stress Tests
+
+Empirical performance metrics benchmarked natively on an Intel Core i5-3470 (4 Cores @ 3.20GHz, 16GB RAM) running Debian 13 Linux:
+
+| Metric Category | Stress Test Result | Budget / Target | Status |
+|:----------------|:------------------|:---------------|:------:|
+| **Simulation Throughput** | **42,166,907 Entities / sec** | High-throughput 2D/3D | ✔ Verified |
+| **Rapier3D Physics Scale** | **8.30 ms @ 5,000 Rigidbodies** | 16.66 ms frame budget | **49.8% Util (50% headroom)** |
+| **Active Player Capacity** | **4.74 ms @ 100,000 Entities** | 60Hz tick rate | **71.5% Headroom** |
+| **WebSocket Concurrency** | **500 Concurrent Clients** | 0.00% Packet Loss | ✔ Rock Solid |
+| **Runtime Memory Footprint** | **< 42 MB RAM under load** | Embedded & Server host | ✔ Zero GC Leaks |
+
+> 📖 **Read the full benchmark report & methodology in [BENCHMARKS.md](BENCHMARKS.md).**
 
 ---
 
