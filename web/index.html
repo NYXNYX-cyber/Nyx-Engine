@@ -1215,6 +1215,12 @@
   <script src="/libs/three.min.js"></script>
   <script src="/libs/GLTFLoader.js"></script>
   <script src="/libs/OBJLoader.js"></script>
+  <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
+  <script src="/js/smart_components.js?v=2"></script>
+  <script src="/js/procedural_suite.js?v=2"></script>
+  <script src="/js/fps_genre_kit.js?v=2"></script>
+  <script src="/js/rpg_genre_kit.js?v=2"></script>
+  <script src="/js/openworld_ai_kit.js?v=2"></script>
 </head>
 <body>
 
@@ -1376,6 +1382,10 @@
           <div class="gen-sidebar-btn active" id="gen-tab-terrain" onclick="switchGeneratorTab('terrain')">Abyssal Terrain</div>
           <div class="gen-sidebar-btn" id="gen-tab-corridor" onclick="switchGeneratorTab('corridor')">Modular Corridor</div>
           <div class="gen-sidebar-btn" id="gen-tab-door" onclick="switchGeneratorTab('door')">Bi-Directional Door</div>
+          <div class="gen-sidebar-btn" id="gen-tab-tree" onclick="switchGeneratorTab('tree')">Tree Studio 3D</div>
+          <div class="gen-sidebar-btn" id="gen-tab-road" onclick="switchGeneratorTab('road')">Spline Road & River</div>
+          <div class="gen-sidebar-btn" id="gen-tab-dungeon" onclick="switchGeneratorTab('dungeon')">Procedural Dungeon</div>
+          <div class="gen-sidebar-btn" id="gen-tab-building" onclick="switchGeneratorTab('building')">Modular Building</div>
           <div class="gen-sidebar-btn" id="gen-tab-lore" onclick="switchGeneratorTab('lore')">Lore Document</div>
           <div class="gen-sidebar-btn" id="gen-tab-audio" onclick="switchGeneratorTab('audio')">Audio Synthesizer</div>
           <div class="gen-sidebar-btn" id="gen-tab-atmosphere" onclick="switchGeneratorTab('atmosphere')">Retro CRT & FX</div>
@@ -1456,6 +1466,10 @@
         <div class="dropdown-item" onclick="openGeneratorModal('terrain')">Procedural Abyssal Terrain...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('corridor')">Modular Interior Corridor...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('door')">Interactive Door (Bi-Directional)...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('tree')">Parametric Tree Studio (Oak/Pine/Palm)...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('road')">Spline Road & River Generator...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('dungeon')">Procedural Dungeon & Maze (BSP)...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('building')">Modular Building (Floors & Roof)...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('lore')">Lore Document / Examine Item...</div>
         <div class="dropdown-sep"></div>
         <div class="dropdown-item" onclick="openGeneratorModal('audio')">Procedural Audio Synthesizer...</div>
@@ -1469,8 +1483,15 @@
         <div class="dropdown-item" onclick="addSelectedComponent('inspect')">Gameplay > Inspectable Lore</div>
         <div class="dropdown-item" onclick="addSelectedComponent('item')">Gameplay > Pickup Item</div>
         <div class="dropdown-item" onclick="addSelectedComponent('fps_controller')">Gameplay > First-Person Controller</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('weapon')">FPS > Equip Modular Weapon (AR-47)</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('rpg_stats')">RPG > Attach RPG Stats & Leveling</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('ai_agent')">AI > Spawn AI Enemy Agent</div>
         <div class="dropdown-sep"></div>
         <div class="dropdown-item" onclick="addSelectedComponent('collider')">Physics > Box Collider</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('auto_collider_convex')">Physics > Convex Hull Auto-Collider</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('destructible')">Physics > Make Destructible (Voronoi)</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('auto_mass')">Physics > Auto Mass & Buoyancy</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('auto_lod')">Optimization > Auto LOD (4 Levels)</div>
         <div class="dropdown-item" onclick="addSelectedComponent('rotator')">Script > Auto Rotator</div>
       </div>
     </div>
@@ -1708,6 +1729,14 @@
       </div>
 
       <div id="dock-inspector-scroll">
+        <!-- SMART ACTION BAR (One-Click Operations) -->
+        <div class="smart-action-bar" style="display:flex; gap:4px; padding:4px 0 8px 0; border-bottom:1px solid var(--border-inner); margin-bottom:8px; overflow-x:auto;">
+          <button class="strip-btn" style="color:#38bdf8; border-color:#206095; font-size:10px; padding:2px 6px;" onclick="quickActionAutoCollider()" title="Generate Best-Fit Collider">+ Collider</button>
+          <button class="strip-btn" style="color:#34d399; border-color:#059669; font-size:10px; padding:2px 6px;" onclick="quickActionAutoLOD()" title="Generate 4 LOD Levels">+ LOD</button>
+          <button class="strip-btn" style="color:#fbbf24; border-color:#d97706; font-size:10px; padding:2px 6px;" onclick="quickActionSnapFloor()" title="Snap bottom of object to Floor Y=0">Snap Floor</button>
+          <button class="strip-btn" style="color:#f87171; border-color:#dc2626; font-size:10px; padding:2px 6px;" onclick="quickActionDestructible()" title="Make object shatter on impact">Destructible</button>
+        </div>
+
         <!-- OBJECT HEADER -->
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
           <input type="checkbox" checked>
@@ -2429,14 +2458,26 @@
         }
       } else {
         container.requestPointerLock();
-        if (activeInteractable) {
-          handleInteraction();
+        if (e.button === 0) {
+          if (activeInteractable) {
+            handleInteraction();
+          } else if (window.NyxFPSKit && window.NyxFPSKit.gunGroup) {
+            window.NyxFPSKit.fire(raycaster, crosshair);
+          } else if (window.NyxRPGKit) {
+            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            window.NyxRPGKit.executeMeleeAttack(camera.position, fwd);
+          }
+        } else if (e.button === 2) {
+          if (window.NyxFPSKit) window.NyxFPSKit.state.isAiming = true;
         }
       }
     });
 
     let gizmoDragStartPos = null;
     window.addEventListener('mouseup', (e) => {
+      if (currentViewMode === 'game' && e.button === 2) {
+        if (window.NyxFPSKit) window.NyxFPSKit.state.isAiming = false;
+      }
       if (e.button === 2) { isRightMouseDown = false; canvas.style.cursor = 'default'; }
       if (e.button === 1) { isMiddleMouseDown = false; canvas.style.cursor = 'default'; }
       if (isDraggingGizmo && currentSelectedObject && gizmoDragStartPos) {
@@ -2557,12 +2598,26 @@
         if (k === 'd' || k === 'arrowright') moveKeys.d = true;
         if (e.shiftKey) moveKeys.shift = true;
 
-        // Player Interaction Key [E] (Opens Doors, Inspects Lore)
+        // Player Interaction Key [E] (Opens Doors, Inspects Lore) or Lean Right
         if (k === 'e') {
           e.preventDefault();
           if (activeInteractable) {
             handleInteraction();
+          } else if (window.NyxFPSKit) {
+            window.NyxFPSKit.state.targetLeanAngle = -0.26;
           }
+          return;
+        }
+
+        // Corner Leaning Left [Q]
+        if (k === 'q') {
+          if (window.NyxFPSKit) window.NyxFPSKit.state.targetLeanAngle = 0.26;
+          return;
+        }
+
+        // Reload Weapon [R]
+        if (k === 'r') {
+          if (window.NyxFPSKit) window.NyxFPSKit.reload();
           return;
         }
 
@@ -2653,8 +2708,8 @@
       if (k === 's' || k === 'arrowdown') moveKeys.s = false;
       if (k === 'a' || k === 'arrowleft') moveKeys.a = false;
       if (k === 'd' || k === 'arrowright') moveKeys.d = false;
-      if (k === 'q') moveKeys.q = false;
-      if (k === 'e') moveKeys.e = false;
+      if (k === 'q') { moveKeys.q = false; if (window.NyxFPSKit) window.NyxFPSKit.state.targetLeanAngle = 0.0; }
+      if (k === 'e') { moveKeys.e = false; if (window.NyxFPSKit) window.NyxFPSKit.state.targetLeanAngle = 0.0; }
       if (!e.shiftKey) moveKeys.shift = false;
     });
 
@@ -3239,6 +3294,99 @@
           <div style="font-size:10.5px; color:#666666;">Generates a unified collision mesh directly into the active scene.</div>
         `;
         execBtn.textContent = 'Generate Seabed into Scene';
+      } else if (tab === 'tree') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Parametric 3D Tree Studio</div>
+            <div class="gen-pane-desc">Procedural L-Systems tree generator with realistic branching, trunk crook, canopy leaf styles, and automated wind sway shader.</div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Tree Archetype:</span>
+              <select class="gen-param-input" id="gen-tr-type">
+                <option value="oak">Broadleaf Oak (Round Canopy)</option>
+                <option value="pine">Conifer Pine (Tiered Cones)</option>
+                <option value="palm">Tropical Palm (Fronds)</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Trunk Height:</span>
+              <input type="number" class="gen-param-input" id="gen-tr-h" value="6.5" step="0.5" min="3" max="18">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Trunk Base Radius:</span>
+              <input type="number" class="gen-param-input" id="gen-tr-r" value="0.45" step="0.05" min="0.1" max="1.5">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Branch Complexity:</span>
+              <input type="range" class="gen-param-slider" id="gen-tr-b" min="2" max="8" value="4">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Leaf Season Palette:</span>
+              <select class="gen-param-input" id="gen-tr-color">
+                <option value="summer">Summer Vibrant Green</option>
+                <option value="autumn">Autumn Crisp Amber</option>
+                <option value="sakura">Sakura Cherry Blossom</option>
+                <option value="golden">Golden Sunlight</option>
+              </select>
+            </div>
+          </div>
+        `;
+        execBtn.textContent = 'Generate Tree into Scene';
+      } else if (tab === 'road') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Spline Road, River & Fence Generator</div>
+            <div class="gen-pane-desc">Extrudes continuous ribbon meshes along interactive 3D Bezier/Catmull-Rom spline curves with automatic terrain snapping.</div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Pathway Surface:</span>
+              <select class="gen-param-input" id="gen-rd-type">
+                <option value="asphalt">Asphalt Roadway (Dark PBR)</option>
+                <option value="dirt">Dirt Path / Hiking Trail</option>
+                <option value="river">Flowing Water River</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Ribbon Width (Meters):</span>
+              <input type="number" class="gen-param-input" id="gen-rd-w" value="4.0" step="0.5" min="1" max="15">
+            </div>
+          </div>
+        `;
+        execBtn.textContent = 'Generate Spline Ribbon into Scene';
+      } else if (tab === 'dungeon') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Procedural BSP Dungeon & Maze</div>
+            <div class="gen-pane-desc">Generates connected rooms, hallways, torches, and solid colliders using Binary Space Partitioning.</div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Room Count:</span>
+              <input type="number" class="gen-param-input" id="gen-dg-rooms" value="5" min="2" max="12">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Dungeon Area Bounds:</span>
+              <input type="number" class="gen-param-input" id="gen-dg-size" value="40" min="20" max="100">
+            </div>
+          </div>
+        `;
+        execBtn.textContent = 'Generate Dungeon into Scene';
+      } else if (tab === 'building') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Modular Procedural Building</div>
+            <div class="gen-pane-desc">Constructs multi-story structures with entry slabs, windowed facades, and pitched rooflines.</div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Number of Floors:</span>
+              <input type="number" class="gen-param-input" id="gen-bd-floors" value="3" min="1" max="10">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Building Width:</span>
+              <input type="number" class="gen-param-input" id="gen-bd-w" value="8.0" step="1.0">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Building Depth:</span>
+              <input type="number" class="gen-param-input" id="gen-bd-d" value="8.0" step="1.0">
+            </div>
+          </div>
+        `;
+        execBtn.textContent = 'Generate Building into Scene';
       } else if (tab === 'corridor') {
         pane.innerHTML = `
           <div>
@@ -3440,6 +3588,48 @@
         const body = document.getElementById('gen-l-body')?.value || '';
 
         buildLoreDocumentEntity({ title, type, giveKey, body });
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'tree' && window.NyxProceduralSuite) {
+        const tree = window.NyxProceduralSuite.generateProceduralTree({
+          type: document.getElementById('gen-tr-type')?.value || 'oak',
+          trunkHeight: parseFloat(document.getElementById('gen-tr-h')?.value) || 6.5,
+          trunkRadius: parseFloat(document.getElementById('gen-tr-r')?.value) || 0.45,
+          branches: parseInt(document.getElementById('gen-tr-b')?.value) || 4,
+          leafColor: document.getElementById('gen-tr-color')?.value || 'summer'
+        });
+        scene.add(tree);
+        editorObjects[tree.name] = tree;
+        rebuildHierarchyPane();
+        selectObject(tree);
+        showEditorNotification(`Generated ${tree.name}`);
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'road' && window.NyxProceduralSuite) {
+        const road = window.NyxProceduralSuite.generateSplineRoad([], parseFloat(document.getElementById('gen-rd-w')?.value) || 4.0, document.getElementById('gen-rd-type')?.value || 'asphalt');
+        scene.add(road);
+        editorObjects[road.name] = road;
+        rebuildHierarchyPane();
+        selectObject(road);
+        showEditorNotification(`Generated ${road.name}`);
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'dungeon' && window.NyxProceduralSuite) {
+        const dg = window.NyxProceduralSuite.generateProceduralDungeon(parseInt(document.getElementById('gen-dg-size')?.value) || 40, parseInt(document.getElementById('gen-dg-size')?.value) || 40, parseInt(document.getElementById('gen-dg-rooms')?.value) || 5);
+        scene.add(dg);
+        editorObjects[dg.name] = dg;
+        rebuildHierarchyPane();
+        selectObject(dg);
+        showEditorNotification(`Generated ${dg.name}`);
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'building' && window.NyxProceduralSuite) {
+        const bd = window.NyxProceduralSuite.generateModularBuilding(parseInt(document.getElementById('gen-bd-floors')?.value) || 3, parseFloat(document.getElementById('gen-bd-w')?.value) || 8.0, parseFloat(document.getElementById('gen-bd-d')?.value) || 8.0);
+        scene.add(bd);
+        editorObjects[bd.name] = bd;
+        rebuildHierarchyPane();
+        selectObject(bd);
+        showEditorNotification(`Generated ${bd.name}`);
         closeGeneratorModal();
 
       } else {
@@ -3884,7 +4074,73 @@
         currentSelectedObject.userData.hasCollision = true;
         currentSelectedObject.traverse(n => { if (n.isMesh) n.userData.hasCollision = true; });
         showEditorNotification(`Added Box Collider to ${currentSelectedObject.name}`);
+      } else if (compType === 'weapon' && window.NyxFPSKit) {
+        window.NyxFPSKit.initController(camera, scene);
+        showEditorNotification(`Equipped Modular Weapon (AR-47) on Camera`);
+      } else if (compType === 'rpg_stats' && window.NyxRPGKit) {
+        window.NyxRPGKit.init(scene, camera);
+        showEditorNotification(`Attached RPG Stats & Leveling`);
+      } else if (compType === 'ai_agent' && window.NyxOpenWorldAIKit) {
+        const agent = window.NyxOpenWorldAIKit.createAIAgent(`AI_Grunt_${Date.now().toString().slice(-4)}`, camera.position.clone().add(new THREE.Vector3(3, 0, -5)));
+        editorObjects[agent.name] = agent;
+        rebuildHierarchyPane();
+        selectObject(agent);
+        showEditorNotification(`Spawned ${agent.name}`);
+      } else if (compType === 'auto_collider_convex' && window.NyxSmartComponents) {
+        window.NyxSmartComponents.applyAutoCollider3D(currentSelectedObject, 'convex');
+        showEditorNotification(`Generated Convex Hull Collider on ${currentSelectedObject.name}`);
+      } else if (compType === 'destructible') {
+        currentSelectedObject.userData.isDestructible = true;
+        currentSelectedObject.userData.hasCollision = true;
+        showEditorNotification(`Marked ${currentSelectedObject.name} as Destructible (Voronoi)`);
+      } else if (compType === 'auto_mass' && window.NyxSmartComponents) {
+        const m = window.NyxSmartComponents.calculateMassAndBuoyancy(currentSelectedObject, 'wood');
+        showEditorNotification(`Calculated Mass: ${m.massKg.toFixed(1)} kg`);
+      } else if (compType === 'auto_lod' && window.NyxSmartComponents) {
+        quickActionAutoLOD();
       }
+    }
+
+    // Smart Action Bar Quick Handlers
+    function quickActionAutoCollider() {
+      if (!currentSelectedObject) { showEditorNotification('Select an object first.'); return; }
+      if (window.NyxSmartComponents) {
+        window.NyxSmartComponents.applyAutoCollider3D(currentSelectedObject, 'box');
+        showEditorNotification(`Generated Auto-Collider for ${currentSelectedObject.name}`);
+      }
+    }
+
+    function quickActionAutoLOD() {
+      if (!currentSelectedObject || !currentSelectedObject.isMesh) { showEditorNotification('Select a 3D Mesh to generate LOD.'); return; }
+      if (window.NyxSmartComponents) {
+        const lod = window.NyxSmartComponents.generateAutoLOD(currentSelectedObject);
+        if (lod) {
+          const parent = currentSelectedObject.parent || scene;
+          const name = currentSelectedObject.name;
+          parent.remove(currentSelectedObject);
+          parent.add(lod);
+          editorObjects[name] = lod;
+          selectObject(lod);
+          rebuildHierarchyPane();
+          showEditorNotification(`Generated 4-Stage Auto-LOD for ${name}`);
+        }
+      }
+    }
+
+    function quickActionSnapFloor() {
+      if (!currentSelectedObject) { showEditorNotification('Select an object first.'); return; }
+      const box = new THREE.Box3().setFromObject(currentSelectedObject);
+      currentSelectedObject.position.y -= box.min.y;
+      syncInspectorCoords();
+      if (typeof gizmoGroup !== 'undefined' && gizmoGroup) gizmoGroup.position.copy(currentSelectedObject.position);
+      showEditorNotification(`Snapped ${currentSelectedObject.name} to Floor Y=0`);
+    }
+
+    function quickActionDestructible() {
+      if (!currentSelectedObject) { showEditorNotification('Select an object first.'); return; }
+      currentSelectedObject.userData.isDestructible = true;
+      currentSelectedObject.userData.hasCollision = true;
+      showEditorNotification(`Marked ${currentSelectedObject.name} as Destructible`);
     }
 
 
@@ -4834,6 +5090,12 @@
           obj.rotation.y += delta * 1.5;
         }
       });
+
+      // Per-Frame Genre Kit & Smart Component Updates
+      if (window.NyxSmartComponents) window.NyxSmartComponents.updateDebris(scene, delta);
+      if (window.NyxFPSKit) window.NyxFPSKit.update(delta);
+      if (window.NyxRPGKit) window.NyxRPGKit.update(delta);
+      if (window.NyxOpenWorldAIKit) window.NyxOpenWorldAIKit.update(delta, camera.position);
 
       // 2. GAME VIEW: FIRST-PERSON PLAYER SIMULATION WITH SOLID COLLISION
       if (currentViewMode === 'game') {
