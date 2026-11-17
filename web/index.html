@@ -1534,7 +1534,7 @@
         <div class="panel-tab active">Hierarchy</div>
       </div>
       <div class="hierarchy-search-box">
-        <input type="text" class="search-input" placeholder="Search by name...">
+        <input type="text" class="search-input" placeholder="Search by name..." oninput="filterHierarchyItems(this.value)">
       </div>
       <div class="tree-scroll-pane" id="hierarchy-tree-pane">
         <!-- Scene 1: Submersible -->
@@ -2702,9 +2702,29 @@
         }
       }
 
+      // Safe Wireframe handling (GridHelper cannot be boxed by BoxHelper)
+      if (typeof selectionWireframe !== 'undefined' && selectionWireframe) {
+        try {
+          if (obj.name === 'EditorGrid' || obj === scene.getObjectByName('EditorGrid')) {
+            selectionWireframe.visible = false;
+          } else {
+            selectionWireframe.setFromObject(obj);
+            selectionWireframe.visible = (currentViewMode === 'scene');
+          }
+        } catch(e) {
+          selectionWireframe.visible = false;
+        }
+      }
+
+      // Highlight active row in hierarchy pane
       document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => {
-        if (row.textContent.trim().includes(name)) row.classList.add('selected');
-        else row.classList.remove('selected');
+        const rowNorm = row.textContent.replace(/[\s_-]/g, '').toLowerCase();
+        const objNorm = name.replace(/[\s_-]/g, '').toLowerCase();
+        if (rowNorm.includes(objNorm) || objNorm.includes(rowNorm)) {
+          row.classList.add('selected');
+        } else {
+          row.classList.remove('selected');
+        }
       });
 
       syncInspectorCoords();
@@ -2851,22 +2871,45 @@
       el.style.display = (el.style.display === 'none') ? 'block' : 'none';
     }
 
-    function selectHierarchyItem(name) {
-      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(r => {
-        if (r.textContent.trim().includes(name)) r.classList.add('selected');
-        else r.classList.remove('selected');
+    function filterHierarchyItems(query) {
+      const q = (query || '').toLowerCase().trim();
+      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => {
+        if (!q) {
+          row.style.display = 'flex';
+        } else {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(q) ? 'flex' : 'none';
+        }
       });
+    }
 
+    function selectHierarchyItem(name) {
       let target = editorObjects[name] || scene.getObjectByName(name);
+
+      if (!target) {
+        // Tolerant name matching (e.g. 'Main Camera' -> 'Main_Camera', 'Editor_Grid' -> 'EditorGrid')
+        const norm = name.replace(/[\s_-]/g, '').toLowerCase();
+        scene.traverse(obj => {
+          if (!target && obj.name && obj.name.replace(/[\s_-]/g, '').toLowerCase() === norm) {
+            target = obj;
+          }
+        });
+      }
+
+      if (!target) {
+        if (name.includes('Camera')) target = (typeof mainCameraObject !== 'undefined') ? mainCameraObject : camera;
+        else if (name.includes('Grid')) target = scene.getObjectByName('EditorGrid');
+        else if (name.includes('SunLight') || name.includes('Sun')) target = scene.getObjectByName('SunLight');
+        else if (name.includes('Clock') && typeof clockGroup !== 'undefined') target = clockGroup;
+        else if (name.includes('Door') && typeof doorPivot !== 'undefined') target = doorPivot;
+        else if (name.includes('Letter') && typeof letterMesh !== 'undefined') target = letterMesh;
+        else if (name.includes('Submersible') && typeof subHull !== 'undefined') target = subHull;
+        else if (name.includes('Corridor') && typeof corridorGroup !== 'undefined') target = corridorGroup;
+      }
+
       if (target) {
         selectObject(target);
-        return;
       }
-      if (name.includes('Clock') && typeof clockGroup !== 'undefined') selectObject(clockGroup);
-      else if (name.includes('Door') && typeof doorPivot !== 'undefined') selectObject(doorPivot);
-      else if (name.includes('Letter') && typeof letterMesh !== 'undefined') selectObject(letterMesh);
-      else if (name.includes('Submersible') && typeof subHull !== 'undefined') selectObject(subHull);
-      else if (name.includes('Corridor') && typeof corridorGroup !== 'undefined') selectObject(corridorGroup);
     }
 
     
@@ -4336,19 +4379,11 @@
     }
 
     function addHierarchyItem(name) {
-      const pane = document.getElementById('hierarchy-tree-pane');
-      if (!pane) return;
-      const row = document.createElement('div');
-      row.className = 'tree-row selected';
-      row.id = `hier-row-${name}`;
-      row.innerHTML = `<span class="tree-arrow">▪</span> <span style="font-weight:700; color:#38bdf8;">${name}</span>`;
-      row.onclick = () => selectHierarchyItem(name);
-      pane.appendChild(row);
+      rebuildHierarchyPane();
     }
 
     function removeHierarchyItem(name) {
-      const row = document.getElementById(`hier-row-${name}`) || Array.from(document.querySelectorAll('#hierarchy-tree-pane .tree-row')).find(r => r.textContent.includes(name));
-      if (row) row.remove();
+      rebuildHierarchyPane();
     }
 
     function duplicateSelectedObject() {
@@ -4611,24 +4646,47 @@
       const tree = document.getElementById('hierarchy-tree-pane');
       if (!tree) return;
 
+      const curName = (currentSelectedObject && (currentSelectedObject.name || currentSelectedObject.userData?.name)) || '';
+
       let html = `
-        <div class="tree-row" onclick="selectHierarchyItem('SunLight')">
+        <div class="tree-row ${curName === 'SunLight' || curName === 'Directional_SunLight' ? 'selected' : ''}" onclick="selectHierarchyItem('SunLight')">
           <span class="tree-arrow">▪</span>
           <span>Directional_SunLight</span>
         </div>
-        <div class="tree-row">
+        <div class="tree-row ${curName === 'Main_Camera' ? 'selected' : ''}" onclick="selectHierarchyItem('Main_Camera')">
           <span class="tree-arrow">▪</span>
           <span>Main_Camera</span>
         </div>
-        <div class="tree-row">
+        <div class="tree-row ${curName === 'EditorGrid' || curName === 'Editor_Grid' ? 'selected' : ''}" onclick="selectHierarchyItem('EditorGrid')">
           <span class="tree-arrow">▪</span>
           <span>Editor_Grid</span>
         </div>
       `;
 
+      // System names to exclude from duplicate listing
+      const seenNames = new Set(['SunLight', 'Directional_SunLight', 'EditorAmbient', 'EditorGrid', 'Editor_Grid', 'SnowParticles', 'Flashlight', 'Main_Camera', 'Main_Camera_Helper']);
+
+      // 1. Scan scene.children for all user objects
+      scene.children.forEach(obj => {
+        if (!obj.name || seenNames.has(obj.name)) return;
+        if (obj === gizmoGroup || obj === selectionWireframe || obj === camera) return;
+        seenNames.add(obj.name);
+
+        const isSel = (curName === obj.name);
+        html += `
+          <div class="tree-row ${isSel ? 'selected' : ''}" id="hier-row-${obj.name}" onclick="selectHierarchyItem('${obj.name}')">
+            <span class="tree-arrow">▪</span>
+            <span style="font-weight:700; color:#38bdf8;">${obj.name}</span>
+          </div>
+        `;
+      });
+
+      // 2. Also scan editorObjects for any registered entities
       Object.keys(editorObjects).forEach(name => {
-        if (['SunLight', 'EditorAmbient', 'EditorGrid', 'SnowParticles', 'Flashlight'].includes(name)) return;
-        const isSel = (currentSelectedObject && currentSelectedObject.name === name);
+        if (seenNames.has(name)) return;
+        seenNames.add(name);
+
+        const isSel = (curName === name);
         html += `
           <div class="tree-row ${isSel ? 'selected' : ''}" id="hier-row-${name}" onclick="selectHierarchyItem('${name}')">
             <span class="tree-arrow">▪</span>
