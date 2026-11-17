@@ -1468,7 +1468,9 @@
         <div class="dropdown-item" onclick="addSelectedComponent('door')">Gameplay > Interactive Door</div>
         <div class="dropdown-item" onclick="addSelectedComponent('inspect')">Gameplay > Inspectable Lore</div>
         <div class="dropdown-item" onclick="addSelectedComponent('item')">Gameplay > Pickup Item</div>
+        <div class="dropdown-item" onclick="addSelectedComponent('fps_controller')">Gameplay > First-Person Controller</div>
         <div class="dropdown-sep"></div>
+        <div class="dropdown-item" onclick="addSelectedComponent('collider')">Physics > Box Collider</div>
         <div class="dropdown-item" onclick="addSelectedComponent('rotator')">Script > Auto Rotator</div>
       </div>
     </div>
@@ -1796,6 +1798,29 @@
         </div>
 
         </div>
+
+        <!-- CAMERA & PLAYER CONTROLLER COMPONENT -->
+        <div id="comp-camera-ctrl" style="display:none; border-top:1px solid var(--border-inner); padding-top:6px; margin-top:6px;">
+          <div class="component-header">
+            <span>Camera & Player Controller</span>
+            <button class="btn-panel-ctrl">⋮</button>
+          </div>
+          <div class="component-body">
+            <div class="row-field">
+              <span class="label-field">Camera FOV</span>
+              <input type="text" class="input-axis" id="insp-cam-fov" value="65°" readonly style="width:70px; text-align:center;">
+            </div>
+            <div class="row-field" style="margin-top:6px;">
+              <span class="label-field" style="width:130px;">First-Person Walk</span>
+              <input type="checkbox" id="chk-fps-controller" onchange="toggleFpsController(this.checked)" style="accent-color:#206095; cursor:pointer;">
+            </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:5px; line-height:1.4;">
+              [Checked] = Player can walk & look around in Play Mode.<br>
+              [Unchecked] = Camera stays still (static real game simulation).
+            </div>
+          </div>
+        </div>
+
         <div id="comp-titanic-lore">
         <!-- SCRIPT COMPONENT: NARRATIVE & BEHAVIOR -->
         <div class="component-header">
@@ -1846,7 +1871,38 @@
     scene.fog = new THREE.FogExp2(0x020409, 0.06);
 
     const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(0, 2.0, -11);
+    camera.position.set(0, 3.5, 7.5);
+
+    // === DUAL CAMERA & PLAYER CONTROLLER ARCHITECTURE ===
+    const editorCameraState = {
+      position: new THREE.Vector3(0, 3.5, 7.5),
+      quaternion: new THREE.Quaternion(),
+      euler: new THREE.Euler(0, 0, 0, 'YXZ')
+    };
+
+    // The Game World Camera Entity
+    const mainCameraObject = new THREE.Group();
+    mainCameraObject.name = 'Main_Camera';
+    mainCameraObject.position.set(0, 1.6, 5);
+    mainCameraObject.userData = {
+      name: 'Main_Camera',
+      isUserObject: false,
+      hasFpsController: false, // Default: FALSE -> Camera STAYS STILL (DIAM) unless explicitly enabled!
+      fov: 65,
+      near: 0.1,
+      far: 100
+    };
+
+    // Visual camera wireframe helper in editor scene
+    const camHelperGeo = new THREE.ConeGeometry(0.3, 0.6, 4);
+    camHelperGeo.rotateX(-Math.PI / 2);
+    const camHelperMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true });
+    const camHelperMesh = new THREE.Mesh(camHelperGeo, camHelperMat);
+    camHelperMesh.name = 'Main_Camera_Helper';
+    mainCameraObject.add(camHelperMesh);
+
+    scene.add(mainCameraObject);
+    editorObjects['Main_Camera'] = mainCameraObject;
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -2253,33 +2309,75 @@
     const modalEl = document.getElementById('lore-modal');
     let activeInteractable = null;
 
+    function toggleFpsController(checked) {
+      if (mainCameraObject) {
+        mainCameraObject.userData.hasFpsController = checked;
+        showEditorNotification(checked ? 'Enabled First-Person Movement on Main_Camera' : 'Disabled Movement — Camera will stay still');
+      }
+    }
+
     function switchViewportTab(tab) {
-      currentViewMode = tab;
-      document.getElementById('tab-scene-view').className = (tab === 'scene') ? 'panel-tab active' : 'panel-tab';
-      document.getElementById('tab-game-view').className = (tab === 'game') ? 'panel-tab active' : 'panel-tab';
+      if (currentViewMode === tab) return;
 
       if (tab === 'game') {
-        document.getElementById('gameplay-overlay').style.display = 'block';
+        // Switching to GAMEPLAY PLAYTEST MODE:
+        // 1. Save developer's current Editor Camera position & rotation
+        editorCameraState.position.copy(camera.position);
+        editorCameraState.quaternion.copy(camera.quaternion);
+        editorCameraState.euler.copy(euler);
+
+        // 2. Hide editor-only elements
         document.getElementById('scene-axis-gizmo').style.display = 'none';
         document.getElementById('scene-nav-hint').style.display = 'none';
-        document.getElementById('strip-mode-label').textContent = 'Mode: First-Person Gameplay';
-        if (typeof gridHelper !== 'undefined') gridHelper.visible = false;
         const gridObj = scene.getObjectByName('EditorGrid');
         if (gridObj) gridObj.visible = false;
         selectionWireframe.visible = false;
         gizmoGroup.visible = false;
+        if (typeof camHelperMesh !== 'undefined' && camHelperMesh) camHelperMesh.visible = false;
         deselectObject();
-        container.requestPointerLock();
+
+        // 3. Move camera to the Game's Main_Camera entity
+        camera.position.copy(mainCameraObject.position);
+        camera.quaternion.copy(mainCameraObject.quaternion);
+        euler.setFromQuaternion(camera.quaternion);
+
+        // 4. Check if camera has movement controller attached
+        const hasController = !!(mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
+        document.getElementById('gameplay-overlay').style.display = 'block';
+
+        if (hasController) {
+          document.getElementById('strip-mode-label').textContent = 'Mode: Playtest (Player Controller Active)';
+          container.requestPointerLock();
+        } else {
+          document.getElementById('strip-mode-label').textContent = 'Mode: Playtest (Static Simulation — Camera Still)';
+        }
+
       } else {
+        // Switching back to SCENE EDITOR MODE:
         document.getElementById('gameplay-overlay').style.display = 'none';
         document.getElementById('scene-axis-gizmo').style.display = 'block';
         document.getElementById('scene-nav-hint').style.display = 'block';
         document.getElementById('strip-mode-label').textContent = 'Mode: Scene Editor (Free Fly WASD)';
-        gridHelper.visible = true;
+        
+        const gridObj = scene.getObjectByName('EditorGrid');
+        if (gridObj) gridObj.visible = true;
         selectionWireframe.visible = true;
         gizmoGroup.visible = true;
-        document.exitPointerLock();
+        if (typeof camHelperMesh !== 'undefined' && camHelperMesh) camHelperMesh.visible = true;
+
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+
+        // Restore developer's editor camera to exact previous working spot!
+        camera.position.copy(editorCameraState.position);
+        camera.quaternion.copy(editorCameraState.quaternion);
+        euler.copy(editorCameraState.euler);
       }
+
+      currentViewMode = tab;
+      document.getElementById('tab-scene-view').className = (tab === 'scene') ? 'panel-tab active' : 'panel-tab';
+      document.getElementById('tab-game-view').className = (tab === 'game') ? 'panel-tab active' : 'panel-tab';
     }
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2404,11 +2502,14 @@
         }
       } else {
         if (document.pointerLockElement === container) {
-          euler.setFromQuaternion(camera.quaternion);
-          euler.y -= e.movementX * 0.0022;
-          euler.x -= e.movementY * 0.0022;
-          euler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, euler.x));
-          camera.quaternion.setFromEuler(euler);
+          const hasController = !!(mainCameraObject && mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
+          if (hasController) {
+            euler.setFromQuaternion(camera.quaternion);
+            euler.y -= e.movementX * 0.0022;
+            euler.x -= e.movementY * 0.0022;
+            euler.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, euler.x));
+            camera.quaternion.setFromEuler(euler);
+          }
         }
       }
     });
@@ -2590,6 +2691,16 @@
       if (nameEl) nameEl.value = name;
       const footerEl = document.getElementById('footer-sel-obj');
       if (footerEl) footerEl.textContent = name;
+
+      const isCam = (obj === mainCameraObject || (obj && obj.name === 'Main_Camera'));
+      const camCtrlPane = document.getElementById('comp-camera-ctrl');
+      if (camCtrlPane) {
+        camCtrlPane.style.display = isCam ? 'block' : 'none';
+        if (isCam) {
+          const chk = document.getElementById('chk-fps-controller');
+          if (chk) chk.checked = !!(mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
+        }
+      }
 
       document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => {
         if (row.textContent.trim().includes(name)) row.classList.add('selected');
@@ -3341,6 +3452,7 @@
       terrainMesh.name = name;
       terrainMesh.position.set(0, -1.0, 0);
       terrainMesh.receiveShadow = true;
+      terrainMesh.userData = { name: name, isUserObject: true, objType: 'terrain', hasCollision: true };
 
       scene.add(terrainMesh);
       editorObjects[name] = terrainMesh;
@@ -3355,6 +3467,7 @@
 
       showEditorNotification(`Generated ${name} (${params.width}x${params.length}m)`);
       logConsole(`[TerrainGenerator] Procedural Seabed created with ${count} vertices.`);
+      return terrainMesh;
     }
 
     // 2. Modular Corridor Builder
@@ -3458,6 +3571,8 @@
         group.add(light);
       }
 
+      group.userData = { name: name, isUserObject: true, objType: 'corridor', hasCollision: true };
+      group.traverse(n => { if (n.isMesh) n.userData.hasCollision = true; });
       scene.add(group);
       editorObjects[name] = group;
       addHierarchyItem(name);
@@ -3471,6 +3586,7 @@
 
       showEditorNotification(`Built ${name} (${totalLen}m long)`);
       logConsole(`[CorridorGenerator] Created modular corridor with ${params.segs} segments.`);
+      return group;
     }
 
     function createDoorSubgroup(doorName, posX, posZ, hingeSide) {
@@ -3533,7 +3649,8 @@
         hingeSide: params.hinge || params.hingeSide || 'left',
         isBiDirectional: params.bidir !== false && params.isBiDirectional !== false,
         isLocked: params.locked === true || params.isLocked === true,
-        requiredKey: params.key || params.requiredKey || ''
+        requiredKey: params.key || params.requiredKey || '',
+        hasCollision: true
       };
       doorMesh.userData = pivot.userData;
       return pivot;
@@ -3589,6 +3706,7 @@
 
       showEditorNotification(`Created Lore Item: ${params.title}`);
       logConsole(`[LoreCreator] Created inspectable item "${params.title}".`);
+      return mesh;
     }
 
     // 5. Atmosphere Presets & CRT Retro Shader Controls
@@ -3624,6 +3742,70 @@
       }
     }
 
+    // === SOLID PHYSICS & COLLISION SYSTEM ===
+    function checkCollisionAtPosition(targetPos, playerRadius = 0.45) {
+      const colliders = [];
+      scene.traverse(obj => {
+        if (obj.isMesh) {
+          // Check that mesh and all ancestor groups are visible!
+          let curr = obj;
+          let isVis = true;
+          while (curr) {
+            if (curr.visible === false) { isVis = false; break; }
+            curr = curr.parent;
+          }
+          if (!isVis) return;
+
+          // Exclude editor helpers, particles, and inspect/pickup triggers
+          if (['EditorGrid', 'SnowParticles', 'Main_Camera_Helper'].includes(obj.name)) return;
+          if (obj.userData && (obj.userData.type === 'inspect' || obj.userData.type === 'pickup')) return;
+          
+          // Collide with all generator prefabs, doors, corridors, walls, terrain, and meshes
+          if (obj.userData && obj.userData.hasCollision === false) return;
+          colliders.push(obj);
+        }
+      });
+
+      const playerBox = new THREE.Box3(
+        new THREE.Vector3(targetPos.x - playerRadius, targetPos.y - 1.4, targetPos.z - playerRadius),
+        new THREE.Vector3(targetPos.x + playerRadius, targetPos.y + 0.2, targetPos.z + playerRadius)
+      );
+
+      for (let i = 0; i < colliders.length; i++) {
+        const mesh = colliders[i];
+        
+        let parentDoor = mesh;
+        while (parentDoor && (!parentDoor.userData || parentDoor.userData.type !== 'door')) {
+          parentDoor = parentDoor.parent;
+        }
+
+        // If door is OPEN and player is passing through doorway center, allow passage
+        if (parentDoor && parentDoor.userData && parentDoor.userData.isOpen) {
+          const doorWorldPos = new THREE.Vector3();
+          parentDoor.getWorldPosition(doorWorldPos);
+          // Only check collision against the swung door leaf if close to it
+          const leafBox = new THREE.Box3().setFromObject(mesh);
+          if (playerBox.intersectsBox(leafBox)) {
+            // Check if player is near door pivot / leaf or passing through opening
+            const distToPivot = new THREE.Vector2(targetPos.x - doorWorldPos.x, targetPos.z - doorWorldPos.z).length();
+            if (distToPivot > 0.6) {
+              // Passing through clear doorway opening
+              continue;
+            }
+            return { collided: true, mesh: mesh, name: parentDoor.name + '_Leaf' };
+          }
+          continue;
+        }
+
+        const meshBox = new THREE.Box3().setFromObject(mesh);
+        if (playerBox.intersectsBox(meshBox)) {
+          return { collided: true, mesh: mesh, name: mesh.name || (parentDoor ? parentDoor.name : 'Collider') };
+        }
+      }
+
+      return { collided: false };
+    }
+
     // Component Dropdown Actions
     function addSelectedComponent(compType) {
       if (!currentSelectedObject) {
@@ -3636,6 +3818,7 @@
         currentSelectedObject.userData.targetAngle = 0;
         currentSelectedObject.userData.currentAngle = 0;
         currentSelectedObject.userData.isBiDirectional = true;
+        currentSelectedObject.userData.hasCollision = true;
         showEditorNotification(`Added Interactive Door Component to ${currentSelectedObject.name}`);
       } else if (compType === 'inspect') {
         currentSelectedObject.userData.type = 'inspect';
@@ -3649,6 +3832,15 @@
       } else if (compType === 'rotator') {
         currentSelectedObject.userData.isRotator = true;
         showEditorNotification(`Added Auto Rotator Script to ${currentSelectedObject.name}`);
+      } else if (compType === 'fps_controller') {
+        currentSelectedObject.userData.hasFpsController = true;
+        const chk = document.getElementById('chk-fps-controller');
+        if (chk) chk.checked = true;
+        showEditorNotification(`Added First-Person Controller to ${currentSelectedObject.name}`);
+      } else if (compType === 'collider') {
+        currentSelectedObject.userData.hasCollision = true;
+        currentSelectedObject.traverse(n => { if (n.isMesh) n.userData.hasCollision = true; });
+        showEditorNotification(`Added Box Collider to ${currentSelectedObject.name}`);
       }
     }
 
@@ -4578,41 +4770,74 @@
         }
       }
 
-      // 2. GAME VIEW: FIRST-PERSON PLAYER WALKING
+      // Auto Rotator Component Script Execution
+      scene.traverse(obj => {
+        if (obj.userData && obj.userData.isRotator) {
+          obj.rotation.y += delta * 1.5;
+        }
+      });
+
+      // 2. GAME VIEW: FIRST-PERSON PLAYER SIMULATION WITH SOLID COLLISION
       if (currentViewMode === 'game') {
-        const speed = 3.6;
-        const dir = new THREE.Vector3();
-        if (moveKeys.w) dir.z -= 1;
-        if (moveKeys.s) dir.z += 1;
-        if (moveKeys.a) dir.x -= 1;
-        if (moveKeys.d) dir.x += 1;
-        dir.normalize();
+        const hasController = !!(mainCameraObject && mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
 
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-        fwd.y = 0; fwd.normalize();
-        const side = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-        side.y = 0; side.normalize();
+        if (hasController) {
+          const speed = 3.6;
+          const dir = new THREE.Vector3();
+          if (moveKeys.w) dir.z -= 1;
+          if (moveKeys.s) dir.z += 1;
+          if (moveKeys.a) dir.x -= 1;
+          if (moveKeys.d) dir.x += 1;
 
-        const moveVec = new THREE.Vector3()
-          .addScaledVector(fwd, -dir.z * speed * delta)
-          .addScaledVector(side, dir.x * speed * delta);
+          if (dir.lengthSq() > 0) {
+            dir.normalize();
 
-        camera.position.add(moveVec);
+            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            fwd.y = 0; fwd.normalize();
+            const side = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            side.y = 0; side.normalize();
 
-        // Raycasting for interactive objects (Doors, Clocks, Letters)
+            const moveVec = new THREE.Vector3()
+              .addScaledVector(fwd, -dir.z * speed * delta)
+              .addScaledVector(side, dir.x * speed * delta);
+
+            // Separate Axis Collision Resolution (X and Z) with sliding!
+            const nextPosX = camera.position.clone();
+            nextPosX.x += moveVec.x;
+            if (!checkCollisionAtPosition(nextPosX).collided) {
+              camera.position.x = nextPosX.x;
+            }
+
+            const nextPosZ = camera.position.clone();
+            nextPosZ.z += moveVec.z;
+            if (!checkCollisionAtPosition(nextPosZ).collided) {
+              camera.position.z = nextPosZ.z;
+            }
+          }
+        } // else: Camera stays completely STILL (diam) as real game simulation!
+
+        // Dynamic Raycasting for ALL interactable objects in the scene (Doors, Lore, Pickups)
+        const interactables = [];
+        scene.traverse(obj => {
+          if (obj.visible && obj.userData && (obj.userData.type === 'door' || obj.userData.type === 'inspect' || obj.userData.type === 'pickup')) {
+            interactables.push(obj);
+          }
+        });
         raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        const hits = raycaster.intersectObjects([clockGroup, doorPivot, letterMesh], true);
+        const hits = raycaster.intersectObjects(interactables, true);
         if (hits.length > 0 && hits[0].distance < 3.2) {
           let root = hits[0].object;
-          while (root.parent && !root.userData.type) root = root.parent;
+          while (root.parent && (!root.userData || !root.userData.type)) root = root.parent;
           if (root.userData && root.userData.type) {
             activeInteractable = root;
             crosshair.classList.add('interactable');
             promptEl.style.display = 'block';
             if (root.userData.type === 'door') {
               promptEl.textContent = `[E] ${root.userData.isOpen ? 'Close' : 'Open'} ${root.userData.name}`;
-            } else {
-              promptEl.textContent = `[E] ${root.userData.title}`;
+            } else if (root.userData.type === 'inspect') {
+              promptEl.textContent = `[E] Examine ${root.userData.title || root.name}`;
+            } else if (root.userData.type === 'pickup') {
+              promptEl.textContent = `[E] Pick up ${root.userData.name}`;
             }
           }
         } else {
