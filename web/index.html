@@ -1341,9 +1341,14 @@
 
       <!-- BOTTOM DOCK: PROJECT & CONSOLE -->
       <div id="bottom-dock-container">
-        <div class="panel-tab-bar">
-          <div class="panel-tab active" id="tab-bottom-project" onclick="switchBottomTab('project')">Project</div>
-          <div class="panel-tab" id="tab-bottom-console" onclick="switchBottomTab('console')">Console</div>
+        <div class="panel-tab-bar" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex;">
+            <div class="panel-tab active" id="tab-bottom-project" onclick="switchBottomTab('project')">Project</div>
+            <div class="panel-tab" id="tab-bottom-console" onclick="switchBottomTab('console')">Console</div>
+          </div>
+          <div style="padding-right:12px;">
+            <button class="strip-btn" onclick="instantiateSelectedAsset()" style="color:#38bdf8; border-color:#206095; font-size:11px;" title="Double-click or click to instantiate into scene">+ Add to Scene</button>
+          </div>
         </div>
 
         <!-- PROJECT VIEW -->
@@ -1532,6 +1537,9 @@
 
     const scene = new THREE.Scene();
     const editorObjects = {};
+    const prefabLibrary = {};
+    let selectedAssetFileName = null;
+    let draggedAssetName = null;
     scene.fog = new THREE.FogExp2(0x020409, 0.06);
 
     const camera = new THREE.PerspectiveCamera(65, container.clientWidth / container.clientHeight, 0.1, 100);
@@ -2577,6 +2585,7 @@
         }
       });
 
+      prefabLibrary[baseName] = model.clone(true);
       scene.add(model);
       editorObjects[baseName] = model;
       addHierarchyItem(baseName);
@@ -2605,10 +2614,16 @@
       logConsole(`[AssetImporter] Successfully integrated model "${baseName}" into scene.`);
     }
 
-    // Drag and Drop files onto window
+    // Drag and Drop: Internal Asset Drag vs External OS File Drop
     window.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      document.getElementById('drop-zone-overlay').classList.add('active');
+      if (draggedAssetName) {
+        // Internal asset drag -> do not show OS upload overlay
+        return;
+      }
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        document.getElementById('drop-zone-overlay').classList.add('active');
+      }
     });
 
     window.addEventListener('dragleave', (e) => {
@@ -2618,13 +2633,61 @@
     });
 
     window.addEventListener('drop', (e) => {
-      e.preventDefault();
       document.getElementById('drop-zone-overlay').classList.remove('active');
-      const files = e.dataTransfer.files;
+      if (draggedAssetName) return;
+      const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
+        e.preventDefault();
         loadModelFile(files[0]);
       }
     });
+
+    // Viewport Canvas Drop Listener
+    canvas.addEventListener('dragover', (e) => {
+      if (draggedAssetName) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+
+    canvas.addEventListener('drop', (e) => {
+      if (draggedAssetName) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = ((e.clientX - rect.left) / canvas.clientWidth) * 2 - 1;
+        const mouseY = -((e.clientY - rect.top) / canvas.clientHeight) * 2 + 1;
+
+        const dropRay = new THREE.Raycaster();
+        dropRay.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const dropPos = new THREE.Vector3();
+        const hit = dropRay.ray.intersectPlane(plane, dropPos);
+
+        instantiateAssetToScene(draggedAssetName, hit ? dropPos : null);
+        draggedAssetName = null;
+      }
+    });
+
+    // Hierarchy Pane Drop Listener
+    const hierPane = document.getElementById('hierarchy-tree-pane');
+    if (hierPane) {
+      hierPane.addEventListener('dragover', (e) => {
+        if (draggedAssetName) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      });
+      hierPane.addEventListener('drop', (e) => {
+        if (draggedAssetName) {
+          e.preventDefault();
+          e.stopPropagation();
+          instantiateAssetToScene(draggedAssetName);
+          draggedAssetName = null;
+        }
+      });
+    }
 
     function renderProjectAssetBrowser(templateKey) {
       const tpl = templateKey || 'blank3d';
@@ -2651,6 +2714,115 @@
       loadAssetFolder(activeAssetFolder, tpl);
     }
 
+    
+    // === PREFAB INSTANTIATION & ASSET BROWSER DRAG-AND-DROP ===
+    function handleAssetDragStart(event, assetName) {
+      draggedAssetName = assetName;
+      selectedAssetFileName = assetName;
+      event.dataTransfer.setData('text/plain', assetName);
+      event.dataTransfer.effectAllowed = 'copy';
+      logConsole(`[AssetBrowser] Started dragging: ${assetName}`);
+    }
+
+    function handleAssetDragEnd(event) {
+      draggedAssetName = null;
+    }
+
+    function selectAssetFile(name, evt) {
+      selectedAssetFileName = name;
+      document.querySelectorAll('#asset-items-list .asset-item-row').forEach(r => {
+        if (r.textContent.includes(name)) r.classList.add('selected');
+        else r.classList.remove('selected');
+      });
+    }
+
+    function instantiateSelectedAsset() {
+      if (selectedAssetFileName) {
+        instantiateAssetToScene(selectedAssetFileName);
+      } else {
+        showEditorNotification('Select a prefab in the Project panel first.');
+      }
+    }
+
+    function instantiateAssetToScene(assetName, dropPosition) {
+      const baseName = assetName.replace(/\.(prefab|scene|mat|obj|glb|gltf)$/i, '');
+
+      let sourceTemplate = prefabLibrary[baseName];
+      if (!sourceTemplate) {
+        sourceTemplate = editorObjects[baseName] || scene.getObjectByName(baseName);
+      }
+
+      if (!sourceTemplate) {
+        if (baseName.toLowerCase().includes('cube')) {
+          const geo = new THREE.BoxGeometry(2, 2, 2);
+          const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.2 });
+          sourceTemplate = new THREE.Mesh(geo, mat);
+          sourceTemplate.name = 'Default_Cube';
+          prefabLibrary['Default_Cube'] = sourceTemplate;
+        } else {
+          showEditorNotification(`Prefab "${baseName}" is not cached in memory.`);
+          return;
+        }
+      }
+
+      // Clone template
+      const newInstance = sourceTemplate.clone(true);
+
+      // Determine unique instance name
+      let count = 1;
+      const existingNames = Object.keys(editorObjects);
+      while (existingNames.includes(`${baseName}_${count}`)) {
+        count++;
+      }
+      const instanceName = `${baseName}_${count}`;
+      newInstance.name = instanceName;
+      newInstance.userData = { ...(sourceTemplate.userData || {}), name: instanceName };
+
+      // Set spawn position
+      if (dropPosition) {
+        newInstance.position.copy(dropPosition);
+        const box = new THREE.Box3().setFromObject(newInstance);
+        if (box.min.y < 0) newInstance.position.y += -box.min.y;
+      } else {
+        const existingCount = scene.children.filter(c => c.name.startsWith(baseName)).length;
+        newInstance.position.set((existingCount - 1) * 2.2, 0, 0);
+        const box = new THREE.Box3().setFromObject(newInstance);
+        if (box.min.y < 0) newInstance.position.y += -box.min.y;
+      }
+
+      // Ensure shadows & materials
+      newInstance.traverse(n => {
+        if (n.isMesh) {
+          n.castShadow = true;
+          n.receiveShadow = true;
+        }
+      });
+
+      scene.add(newInstance);
+      editorObjects[instanceName] = newInstance;
+      addHierarchyItem(instanceName);
+      selectObject(newInstance);
+
+      HistoryManager.record({
+        name: `Instantiate ${instanceName}`,
+        undo() {
+          scene.remove(newInstance);
+          delete editorObjects[instanceName];
+          removeHierarchyItem(instanceName);
+          deselectObject();
+        },
+        redo() {
+          scene.add(newInstance);
+          editorObjects[instanceName] = newInstance;
+          addHierarchyItem(instanceName);
+          selectObject(newInstance);
+        }
+      });
+
+      showEditorNotification(`Instantiated ${instanceName}`);
+      logConsole(`[AssetBrowser] Instantiated "${instanceName}" into Scene.`);
+    }
+
     function loadAssetFolder(folderName, tplKey) {
       activeAssetFolder = folderName;
       document.querySelectorAll('.folder-tree-pane .tree-row').forEach(r => {
@@ -2671,9 +2843,20 @@
 
       let itemsHtml = '';
       assets.forEach((item, idx) => {
+        if (idx === 0 && !selectedAssetFileName) selectedAssetFileName = item.name;
+        const isSel = (item.name === selectedAssetFileName || (idx === 0 && !selectedAssetFileName));
         itemsHtml += `
-          <div class="asset-item-row ${idx === 0 ? 'selected' : ''}" onclick="selectAssetFile('${item.name}')">
-            <span style="font-weight:500;">${item.name}</span>
+          <div class="asset-item-row ${isSel ? 'selected' : ''}"
+               draggable="true"
+               ondragstart="handleAssetDragStart(event, '${item.name}')"
+               ondragend="handleAssetDragEnd(event)"
+               ondblclick="instantiateAssetToScene('${item.name}')"
+               onclick="selectAssetFile('${item.name}', event)"
+               title="Double-click or Drag into Scene Viewport to Instantiate">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:600; color:#e0e0e0;">${item.name}</span>
+              <span style="font-size:9.5px; color:#777777; background:#181818; padding:1px 5px; border-radius:3px; border:1px solid #282828;">Drag / Double-Click</span>
+            </div>
             <span style="color:var(--text-faint); font-family:var(--font-mono); font-size:10px;">${item.desc || item.type}</span>
           </div>
         `;
@@ -2681,15 +2864,7 @@
       listPane.innerHTML = itemsHtml;
     }
 
-    function old_loadAssetFolder(name) {
-      document.querySelectorAll('.folder-tree-pane .tree-row').forEach(r => r.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
-    }
 
-    function selectAssetFile(name) {
-      document.querySelectorAll('#asset-items-list .asset-item-row').forEach(r => r.classList.remove('selected'));
-      event.currentTarget.classList.add('selected');
-    }
 
     function toggleWireframe() {
       const isW = !leftWall.material.wireframe;
@@ -3314,6 +3489,7 @@
         cube.position.set(0, 1, 0);
         scene.add(cube);
         editorObjects['Default_Cube'] = cube;
+        prefabLibrary['Default_Cube'] = cube.clone(true);
       }
       cube.visible = true;
 
