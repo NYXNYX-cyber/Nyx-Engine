@@ -5477,6 +5477,19 @@
     const valFps = document.getElementById('val-fps');
 
     function animate() {
+      // === GPU ECO-MODE & ZERO BACKGROUND LOAD ===
+      // If Unity Project Hub is open, or browser tab/window is hidden or minimized, PAUSE 3D GPU RENDERING!
+      const hubEl = document.getElementById('project-hub-overlay');
+      const isHubOpen = hubEl && !hubEl.classList.contains('hidden');
+      const isDocHidden = document.hidden;
+
+      if (isHubOpen || isDocHidden) {
+        requestAnimationFrame(animate);
+        clock.getDelta(); // Flush delta so there is no time-jump stutter on resume
+        if (valFps) valFps.textContent = '0 (Idle)';
+        return; // Zero GPU render load!
+      }
+
       // Dynamic screen-space scale for Transform Gizmo
       if (gizmoGroup.visible && currentViewMode === 'scene') {
         const dist = camera.position.distanceTo(gizmoGroup.position);
@@ -5685,6 +5698,22 @@
       renderer.setSize(container.clientWidth, container.clientHeight);
     });
 
+    // Tab Visibility Listener for Background GPU & Audio Power Saving
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'running') {
+          audioCtx.suspend();
+        }
+      } else {
+        const hubEl = document.getElementById('project-hub-overlay');
+        const isHubOpen = hubEl && !hubEl.classList.contains('hidden');
+        if (!isHubOpen && typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'suspended' && audioEnabled) {
+          audioCtx.resume();
+        }
+      }
+    });
+
+
     switchViewportTab('scene');
     loadSceneByName('titanic');
     animate();
@@ -5741,6 +5770,9 @@
     function openProjectHub() {
       document.getElementById('project-hub-overlay').classList.remove('hidden');
       loadUserProjects();
+      if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state === 'running') {
+        audioCtx.suspend();
+      }
     }
 
     function openNewProjectModal() {
