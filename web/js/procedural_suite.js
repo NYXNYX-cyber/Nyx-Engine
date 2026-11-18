@@ -334,8 +334,239 @@ const NyxProceduralSuite = {
 
     console.log(`[ModularBuilding] Built ${floors}-story building "${name}" (${width}x${depth}m)`);
     return buildingGroup;
+  },
+
+  // 5. PROCEDURAL MINECRAFT VOXEL TERRAIN GENERATOR
+  generateVoxelMinecraftWorld(params = {}) {
+    const sizeX = params.sizeX || 16; // Block columns X (e.g. 16x16 standard Minecraft chunk)
+    const sizeZ = params.sizeZ || 16; // Block columns Z
+    const maxHeight = params.maxHeight || 10;
+    const baseHeight = params.baseHeight || 3;
+    const blockSize = params.blockSize || 1.0;
+    const seaLevel = params.seaLevel || 3;
+    const seed = params.seed || Math.floor(Math.random() * 10000);
+    const spawnTrees = params.spawnTrees !== false;
+    const spawnOres = params.spawnOres !== false;
+
+    const chunkGroup = new THREE.Group();
+    const chunkName = `Minecraft_Chunk_${Date.now().toString().slice(-4)}`;
+    chunkGroup.name = chunkName;
+
+    // Procedural 16x16 Pixel Art Textures
+    function createVoxelTex(type) {
+      const c = document.createElement('canvas');
+      c.width = 16; c.height = 16;
+      const ctx = c.getContext('2d');
+      if (type === 'grass_top') {
+        ctx.fillStyle = '#5c8e32'; ctx.fillRect(0, 0, 16, 16);
+        for (let i = 0; i < 30; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#4e7b28' : '#6ba03c';
+          ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 1, 1);
+        }
+      } else if (type === 'dirt') {
+        ctx.fillStyle = '#866043'; ctx.fillRect(0, 0, 16, 16);
+        for (let i = 0; i < 40; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#735137' : '#9c7352';
+          ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 1, 1);
+        }
+      } else if (type === 'stone') {
+        ctx.fillStyle = '#7a7a7a'; ctx.fillRect(0, 0, 16, 16);
+        for (let i = 0; i < 45; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#686868' : '#8d8d8d';
+          ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 1, 1);
+        }
+      } else if (type === 'diamond_ore') {
+        ctx.fillStyle = '#7a7a7a'; ctx.fillRect(0, 0, 16, 16);
+        ctx.fillStyle = '#2de2d6';
+        ctx.fillRect(4, 3, 2, 2); ctx.fillRect(10, 5, 2, 2);
+        ctx.fillRect(5, 11, 2, 2); ctx.fillRect(11, 12, 2, 2);
+      } else if (type === 'wood') {
+        ctx.fillStyle = '#674d2f'; ctx.fillRect(0, 0, 16, 16);
+        ctx.fillStyle = '#4e3921';
+        for (let y = 0; y < 16; y += 4) ctx.fillRect(0, y, 16, 1);
+      } else if (type === 'leaves') {
+        ctx.fillStyle = '#3a7d28'; ctx.fillRect(0, 0, 16, 16);
+        for (let i = 0; i < 35; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#2d631e' : '#499333';
+          ctx.fillRect(Math.floor(Math.random()*16), Math.floor(Math.random()*16), 1, 1);
+        }
+      } else if (type === 'water') {
+        ctx.fillStyle = '#2058a8'; ctx.fillRect(0, 0, 16, 16);
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      return t;
+    }
+
+    const matGrass = new THREE.MeshStandardMaterial({ map: createVoxelTex('grass_top'), roughness: 0.9 });
+    const matDirt = new THREE.MeshStandardMaterial({ map: createVoxelTex('dirt'), roughness: 0.95 });
+    const matStone = new THREE.MeshStandardMaterial({ map: createVoxelTex('stone'), roughness: 0.85 });
+    const matOre = new THREE.MeshStandardMaterial({ map: createVoxelTex('diamond_ore'), roughness: 0.85 });
+    const matWood = new THREE.MeshStandardMaterial({ map: createVoxelTex('wood'), roughness: 0.8 });
+    const matLeaves = new THREE.MeshStandardMaterial({ map: createVoxelTex('leaves'), roughness: 0.7 });
+    const matWater = new THREE.MeshStandardMaterial({ map: createVoxelTex('water'), roughness: 0.1, transparent: true, opacity: 0.75 });
+
+    const boxGeo = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+
+    // Collect transforms per block type
+    const blockInstances = {
+      grass: [],
+      dirt: [],
+      stone: [],
+      ore: [],
+      wood: [],
+      leaves: [],
+      water: []
+    };
+
+    const heightmap = {};
+    const halfX = (sizeX * blockSize) / 2;
+    const halfZ = (sizeZ * blockSize) / 2;
+
+    // 1. Calculate discrete block heights using stepped noise
+    for (let x = 0; x < sizeX; x++) {
+      for (let z = 0; z < sizeZ; z++) {
+        const nx = (x + seed) * 0.12;
+        const nz = (z + seed) * 0.12;
+        
+        // Multi-octave Stepped Simplex-like Perlin approximation
+        let n = Math.sin(nx) * Math.cos(nz);
+        n += Math.sin(nx * 2.2 + 1.5) * Math.cos(nz * 2.2 + 0.8) * 0.45;
+        n += Math.sin(nx * 4.5 + 2.1) * Math.cos(nz * 4.5 + 3.2) * 0.2;
+
+        const h = Math.floor(baseHeight + (n + 1.0) * 0.5 * (maxHeight - baseHeight));
+        const finalHeight = Math.max(1, Math.min(maxHeight, h));
+
+        heightmap[`${x}_${z}`] = finalHeight * blockSize;
+
+        const worldX = (x * blockSize) - halfX + (blockSize / 2);
+        const worldZ = (z * blockSize) - halfZ + (blockSize / 2);
+
+        // Fill vertical column with blocks
+        for (let y = 0; y <= finalHeight; y++) {
+          const worldY = (y * blockSize) + (blockSize / 2);
+          const mat4 = new THREE.Matrix4().setPosition(worldX, worldY, worldZ);
+
+          if (y === finalHeight) {
+            if (y >= seaLevel) {
+              blockInstances.grass.push(mat4);
+            } else {
+              blockInstances.dirt.push(mat4);
+            }
+          } else if (y >= finalHeight - 2) {
+            blockInstances.dirt.push(mat4);
+          } else {
+            // Underground stone or rare ore
+            if (spawnOres && Math.random() < 0.08 && y < 4) {
+              blockInstances.ore.push(mat4);
+            } else {
+              blockInstances.stone.push(mat4);
+            }
+          }
+        }
+
+        // Fill water bodies if below sea level
+        if (finalHeight < seaLevel) {
+          for (let w = finalHeight + 1; w <= seaLevel; w++) {
+            const worldY = (w * blockSize) + (blockSize / 2);
+            const mat4 = new THREE.Matrix4().setPosition(worldX, worldY, worldZ);
+            blockInstances.water.push(mat4);
+          }
+          heightmap[`${x}_${z}`] = seaLevel * blockSize;
+        }
+
+        // 2. Procedural Voxel Oak Trees
+        if (spawnTrees && finalHeight >= seaLevel + 1 && x > 2 && x < sizeX - 2 && z > 2 && z < sizeZ - 2) {
+          // Probability of tree
+          const treeNoise = Math.sin(x * 12.5 + z * 33.1 + seed);
+          if (treeNoise > 0.72) {
+            const treeBaseY = finalHeight + 1;
+            const treeTrunkH = 4;
+
+            // Wood Trunk
+            for (let ty = 0; ty < treeTrunkH; ty++) {
+              const wy = ((treeBaseY + ty) * blockSize) + (blockSize / 2);
+              const mWood = new THREE.Matrix4().setPosition(worldX, wy, worldZ);
+              blockInstances.wood.push(mWood);
+            }
+
+            // Leaves Canopy (3x3 cap)
+            const leafBaseY = treeBaseY + treeTrunkH - 1;
+            for (let lx = -1; lx <= 1; lx++) {
+              for (let lz = -1; lz <= 1; lz++) {
+                for (let ly = 0; ly < 2; ly++) {
+                  if (lx === 0 && lz === 0 && ly === 0) continue; // trunk inside
+                  const wx = worldX + (lx * blockSize);
+                  const wy = ((leafBaseY + ly) * blockSize) + (blockSize / 2);
+                  const wz = worldZ + (lz * blockSize);
+                  const mLeaf = new THREE.Matrix4().setPosition(wx, wy, wz);
+                  blockInstances.leaves.push(mLeaf);
+                }
+              }
+            }
+
+            // Crown top leaf
+            const crownM = new THREE.Matrix4().setPosition(worldX, ((leafBaseY + 2) * blockSize) + (blockSize / 2), worldZ);
+            blockInstances.leaves.push(crownM);
+          }
+        }
+      }
+    }
+
+    // Build GPU InstancedMeshes for 60 FPS performance
+    const mats = {
+      grass: matGrass,
+      dirt: matDirt,
+      stone: matStone,
+      ore: matOre,
+      wood: matWood,
+      leaves: matLeaves,
+      water: matWater
+    };
+
+    let totalBlocks = 0;
+    Object.keys(blockInstances).forEach(type => {
+      const arr = blockInstances[type];
+      if (arr.length === 0) return;
+      totalBlocks += arr.length;
+
+      const instMesh = new THREE.InstancedMesh(boxGeo, mats[type], arr.length);
+      instMesh.name = `Voxel_${type}`;
+      instMesh.castShadow = (type !== 'water');
+      instMesh.receiveShadow = true;
+      instMesh.userData = { hasCollision: (type !== 'water'), blockType: type };
+
+      for (let i = 0; i < arr.length; i++) {
+        instMesh.setMatrixAt(i, arr[i]);
+      }
+      instMesh.instanceMatrix.needsUpdate = true;
+      chunkGroup.add(instMesh);
+    });
+
+    chunkGroup.userData = {
+      name: chunkName,
+      isUserObject: true,
+      objType: 'minecraft_voxel',
+      isVoxelChunk: true,
+      hasCollision: true,
+      totalBlocks: totalBlocks,
+      chunkParams: { sizeX, sizeZ, maxHeight, seaLevel, blockSize, seed },
+      heightmap: heightmap,
+      bounds: {
+        minX: -halfX, maxX: halfX,
+        minZ: -halfZ, maxZ: halfZ,
+        blockSize: blockSize,
+        sizeX: sizeX,
+        sizeZ: sizeZ
+      }
+    };
+
+    console.log(`[MinecraftVoxel] Generated voxel world "${chunkName}" with ${totalBlocks} blocks (Chunk: ${sizeX}x${sizeZ}, Sea: ${seaLevel})`);
+    return chunkGroup;
   }
 };
+
 
 window.NyxProceduralSuite = NyxProceduralSuite;
 console.log('✔ [Nyx Engine] Procedural Generation Suite Module Loaded.');

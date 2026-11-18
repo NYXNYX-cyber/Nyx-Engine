@@ -1386,6 +1386,7 @@
           <div class="gen-sidebar-btn" id="gen-tab-road" onclick="switchGeneratorTab('road')">Spline Road & River</div>
           <div class="gen-sidebar-btn" id="gen-tab-dungeon" onclick="switchGeneratorTab('dungeon')">Procedural Dungeon</div>
           <div class="gen-sidebar-btn" id="gen-tab-building" onclick="switchGeneratorTab('building')">Modular Building</div>
+          <div class="gen-sidebar-btn" id="gen-tab-voxel" onclick="switchGeneratorTab('voxel')">Minecraft Voxel World</div>
           <div class="gen-sidebar-btn" id="gen-tab-lore" onclick="switchGeneratorTab('lore')">Lore Document</div>
           <div class="gen-sidebar-btn" id="gen-tab-audio" onclick="switchGeneratorTab('audio')">Audio Synthesizer</div>
           <div class="gen-sidebar-btn" id="gen-tab-atmosphere" onclick="switchGeneratorTab('atmosphere')">Retro CRT & FX</div>
@@ -1470,6 +1471,7 @@
         <div class="dropdown-item" onclick="openGeneratorModal('road')">Spline Road & River Generator...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('dungeon')">Procedural Dungeon & Maze (BSP)...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('building')">Modular Building (Floors & Roof)...</div>
+        <div class="dropdown-item" onclick="openGeneratorModal('voxel')">Minecraft Voxel World (Procedural)...</div>
         <div class="dropdown-item" onclick="openGeneratorModal('lore')">Lore Document / Examine Item...</div>
         <div class="dropdown-sep"></div>
         <div class="dropdown-item" onclick="openGeneratorModal('audio')">Procedural Audio Synthesizer...</div>
@@ -1737,6 +1739,17 @@
           <button class="strip-btn" style="color:#f87171; border-color:#dc2626; font-size:10px; padding:2px 6px;" onclick="quickActionDestructible()" title="Make object shatter on impact">Destructible</button>
         </div>
 
+        <!-- ATTACHED COMPONENTS CONTAINER & REMOVE CONTROLLER -->
+        <div id="insp-attached-components-box" style="margin-bottom:10px; padding:6px; background:rgba(0,0,0,0.25); border:1px solid var(--border-inner); border-radius:4px;">
+          <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Attached Components</span>
+            <span id="insp-comp-count" style="color:#38bdf8; font-family:var(--font-mono); font-weight:bold;">0</span>
+          </div>
+          <div id="insp-attached-components-list" style="display:flex; flex-direction:column; gap:4px;">
+            <div style="font-size:10px; color:#64748b; font-style:italic;">No entity selected</div>
+          </div>
+        </div>
+
         <!-- OBJECT HEADER -->
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
           <input type="checkbox" checked>
@@ -1832,7 +1845,10 @@
         <div id="comp-camera-ctrl" style="display:none; border-top:1px solid var(--border-inner); padding-top:6px; margin-top:6px;">
           <div class="component-header">
             <span>Camera & Player Controller</span>
-            <button class="btn-panel-ctrl">⋮</button>
+            <div style="display:flex; gap:4px; align-items:center;">
+              <button class="btn-panel-ctrl" style="color:#f87171; font-weight:700;" onclick="removeAttachedComponent('fps_controller')" title="Remove Camera Controller">✕</button>
+              <button class="btn-panel-ctrl">⋮</button>
+            </div>
           </div>
           <div class="component-body">
             <div class="row-field">
@@ -1854,7 +1870,10 @@
         <!-- SCRIPT COMPONENT: NARRATIVE & BEHAVIOR -->
         <div class="component-header">
           <span id="script-component-title">Interactive Object (Script)</span>
-          <button class="btn-panel-ctrl">⋮</button>
+          <div style="display:flex; gap:4px; align-items:center;">
+            <button class="btn-panel-ctrl" style="color:#f87171; font-weight:700;" onclick="removeAttachedComponent('script')" title="Remove Script Component">✕</button>
+            <button class="btn-panel-ctrl">⋮</button>
+          </div>
         </div>
         <div class="component-body">
           <div class="row-field">
@@ -2730,6 +2749,170 @@
       return list;
     }
 
+
+    // === INSPECTOR COMPONENT MANAGEMENT (LIST & REMOVE) ===
+    function renderAttachedComponentsList(obj) {
+      const container = document.getElementById('insp-attached-components-list');
+      const countEl = document.getElementById('insp-comp-count');
+      if (!container) return;
+
+      if (!obj) {
+        container.innerHTML = '<div style="font-size:10px; color:#64748b; font-style:italic;">No entity selected</div>';
+        if (countEl) countEl.textContent = '0';
+        return;
+      }
+
+      const comps = [];
+
+      // 1. Camera / Player Controller
+      if (obj === mainCameraObject || (obj && obj.name === 'Main_Camera')) {
+        if (obj.userData && obj.userData.hasFpsController) {
+          comps.push({ id: 'fps_controller', name: 'First-Person Walk Controller', tag: 'Player', color: '#38bdf8' });
+        }
+        const viewmodel = camera.getObjectByName('FPS_Viewmodel_Gun');
+        if (viewmodel) {
+          comps.push({ id: 'weapon', name: 'Modular Weapon (AR-47)', tag: 'FPS Weapon', color: '#f87171' });
+        }
+      }
+
+      // 2. Interactive Door
+      if (obj.userData && obj.userData.type === 'door') {
+        comps.push({ id: 'door', name: 'Interactive Door (Hinge & Key)', tag: 'Gameplay', color: '#fbbf24' });
+      }
+
+      // 3. Inspectable Lore
+      if (obj.userData && obj.userData.type === 'inspect') {
+        comps.push({ id: 'inspect', name: `Lore Inspect (${obj.userData.title || 'Document'})`, tag: 'Narrative', color: '#a78bfa' });
+      }
+
+      // 4. Pickup Item
+      if (obj.userData && obj.userData.type === 'pickup') {
+        comps.push({ id: 'item', name: `Pickup Item (${obj.userData.itemId || obj.name})`, tag: 'Inventory', color: '#34d399' });
+      }
+
+      // 5. Solid Collider
+      if (obj.userData && obj.userData.hasCollision) {
+        const alg = (obj.userData.autoCollider3D && obj.userData.autoCollider3D.algorithm) || 'Solid';
+        comps.push({ id: 'collider', name: `${alg.toUpperCase()} Collider (Physics)`, tag: 'Physics', color: '#38bdf8' });
+      }
+
+      // 6. Auto Rotator
+      if (obj.userData && obj.userData.isRotator) {
+        comps.push({ id: 'rotator', name: 'Auto Rotator Script (1.5 rad/s)', tag: 'Script', color: '#e879f9' });
+      }
+
+      // 7. Destructible Voronoi
+      if (obj.userData && obj.userData.isDestructible) {
+        comps.push({ id: 'destructible', name: 'Destructible (Voronoi Fracture)', tag: 'Physics', color: '#ef4444' });
+      }
+
+      // 8. Auto Mass & Buoyancy
+      if (obj.userData && obj.userData.physicsMass) {
+        comps.push({ id: 'auto_mass', name: `Mass & Buoyancy (${obj.userData.physicsMass.massKg.toFixed(1)}kg)`, tag: 'Physics', color: '#0ea5e9' });
+      }
+
+      // 9. Auto LOD
+      if (obj.userData && obj.userData.isAutoLOD) {
+        comps.push({ id: 'auto_lod', name: 'Auto-LOD (4 Levels)', tag: 'Optimization', color: '#10b981' });
+      }
+
+      // 10. AI Enemy Agent
+      if (obj.userData && obj.userData.isEnemy) {
+        comps.push({ id: 'ai_agent', name: 'AI Enemy Behavior Tree', tag: 'AI', color: '#dc2626' });
+      }
+
+      // 11. RPG Stats
+      if (obj.userData && obj.userData.rpgStats) {
+        comps.push({ id: 'rpg_stats', name: `RPG Stats & Leveling (Lv.${obj.userData.rpgStats.level || 1})`, tag: 'RPG', color: '#f59e0b' });
+      }
+
+      if (countEl) countEl.textContent = comps.length;
+
+      if (comps.length === 0) {
+        container.innerHTML = '<div style="font-size:10.5px; color:#64748b; font-style:italic; padding:2px 0;">No extra components attached. Use menu "Component" to add one.</div>';
+        return;
+      }
+
+      let html = '';
+      comps.forEach(c => {
+        html += `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#1e2430; padding:4px 8px; border-radius:3px; border:1px solid #2d3748;">
+            <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+              <span style="font-size:9px; background:${c.color}22; color:${c.color}; border:1px solid ${c.color}66; border-radius:2px; padding:1px 4px; font-weight:700;">${c.tag}</span>
+              <span style="font-size:11px; color:#f1f5f9; font-weight:600; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${c.name}">${c.name}</span>
+            </div>
+            <button class="btn-row-del" onclick="removeAttachedComponent('${c.id}')" title="Remove Component" style="color:#f87171; font-weight:700; padding:1px 6px; font-size:11px; margin-left:6px; cursor:pointer; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); border-radius:3px;">✕</button>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function removeAttachedComponent(compType) {
+      if (!currentSelectedObject) return;
+      const obj = currentSelectedObject;
+      const name = obj.name || 'Object';
+
+      if (compType === 'fps_controller') {
+        if (mainCameraObject && mainCameraObject.userData) {
+          mainCameraObject.userData.hasFpsController = false;
+          const chk = document.getElementById('chk-fps-controller');
+          if (chk) chk.checked = false;
+          showEditorNotification(`Removed First-Person Controller from ${name}`);
+        }
+      } else if (compType === 'weapon') {
+        const vm = camera.getObjectByName('FPS_Viewmodel_Gun');
+        if (vm) {
+          camera.remove(vm);
+          if (window.NyxFPSKit) window.NyxFPSKit.gunGroup = null;
+          showEditorNotification(`Removed Weapon from Camera`);
+        }
+      } else if (compType === 'door' || compType === 'inspect' || compType === 'pickup' || compType === 'script') {
+        const oldType = obj.userData.type;
+        delete obj.userData.type;
+        delete obj.userData.isOpen;
+        delete obj.userData.targetAngle;
+        delete obj.userData.currentAngle;
+        delete obj.userData.title;
+        delete obj.userData.text;
+        delete obj.userData.giveItem;
+        delete obj.userData.itemId;
+        const lorePane = document.getElementById('comp-titanic-lore');
+        if (lorePane) lorePane.style.display = 'none';
+        showEditorNotification(`Removed ${oldType || 'Script'} Component from ${name}`);
+      } else if (compType === 'collider') {
+        obj.userData.hasCollision = false;
+        delete obj.userData.autoCollider3D;
+        obj.traverse(n => { if (n.isMesh) n.userData.hasCollision = false; });
+        showEditorNotification(`Removed Collider from ${name}`);
+      } else if (compType === 'rotator') {
+        delete obj.userData.isRotator;
+        showEditorNotification(`Removed Auto Rotator from ${name}`);
+      } else if (compType === 'destructible') {
+        delete obj.userData.isDestructible;
+        showEditorNotification(`Removed Destructible Component from ${name}`);
+      } else if (compType === 'auto_mass') {
+        delete obj.userData.physicsMass;
+        showEditorNotification(`Removed Mass & Buoyancy from ${name}`);
+      } else if (compType === 'auto_lod') {
+        delete obj.userData.isAutoLOD;
+        showEditorNotification(`Removed Auto-LOD from ${name}`);
+      } else if (compType === 'ai_agent') {
+        delete obj.userData.isEnemy;
+        if (window.NyxOpenWorldAIKit) {
+          window.NyxOpenWorldAIKit.aiAgents = window.NyxOpenWorldAIKit.aiAgents.filter(a => a !== obj);
+        }
+        showEditorNotification(`Removed AI Agent Component from ${name}`);
+      } else if (compType === 'rpg_stats') {
+        delete obj.userData.rpgStats;
+        showEditorNotification(`Removed RPG Stats from ${name}`);
+      }
+
+      renderAttachedComponentsList(obj);
+      logConsole(`[Inspector] Removed component "${compType}" from ${name}.`);
+    }
+
     function selectObject(obj) {
       if (!obj) {
         deselectObject();
@@ -2783,9 +2966,11 @@
       });
 
       syncInspectorCoords();
+      renderAttachedComponentsList(obj);
     }
 
     function deselectObject() {
+      renderAttachedComponentsList(null);
       currentSelectedObject = null;
       selectionWireframe.visible = false;
       gizmoGroup.visible = false;
@@ -3387,6 +3572,38 @@
           </div>
         `;
         execBtn.textContent = 'Generate Building into Scene';
+      } else if (tab === 'voxel') {
+        pane.innerHTML = `
+          <div>
+            <div class="gen-pane-title">Procedural Minecraft Voxel World</div>
+            <div class="gen-pane-desc">Generates a 3D blocky voxel chunk with stepped multi-octave terrain, pixel-art textures (Grass, Dirt, Stone, Diamond Ore, Water), voxel trees, and solid physics collision.</div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Chunk Width (Blocks X):</span>
+              <input type="number" class="gen-param-input" id="gen-vx-x" value="16" min="8" max="32">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Chunk Length (Blocks Z):</span>
+              <input type="number" class="gen-param-input" id="gen-vx-z" value="16" min="8" max="32">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Max Mountain Height:</span>
+              <input type="number" class="gen-param-input" id="gen-vx-h" value="10" min="4" max="24">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Sea Level (Water Basins):</span>
+              <input type="number" class="gen-param-input" id="gen-vx-sea" value="3" min="1" max="10">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Spawn Voxel Oak Trees:</span>
+              <input type="checkbox" id="gen-vx-trees" checked style="accent-color:#206095; cursor:pointer;">
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Spawn Diamond & Ore Veins:</span>
+              <input type="checkbox" id="gen-vx-ores" checked style="accent-color:#206095; cursor:pointer;">
+            </div>
+          </div>
+        `;
+        execBtn.textContent = 'Generate Minecraft Voxel Chunk';
       } else if (tab === 'corridor') {
         pane.innerHTML = `
           <div>
@@ -3630,6 +3847,22 @@
         rebuildHierarchyPane();
         selectObject(bd);
         showEditorNotification(`Generated ${bd.name}`);
+        closeGeneratorModal();
+
+      } else if (currentGeneratorTab === 'voxel' && window.NyxProceduralSuite) {
+        const chunk = window.NyxProceduralSuite.generateVoxelMinecraftWorld({
+          sizeX: parseInt(document.getElementById('gen-vx-x')?.value) || 16,
+          sizeZ: parseInt(document.getElementById('gen-vx-z')?.value) || 16,
+          maxHeight: parseInt(document.getElementById('gen-vx-h')?.value) || 10,
+          seaLevel: parseInt(document.getElementById('gen-vx-sea')?.value) || 3,
+          spawnTrees: document.getElementById('gen-vx-trees')?.checked,
+          spawnOres: document.getElementById('gen-vx-ores')?.checked
+        });
+        scene.add(chunk);
+        editorObjects[chunk.name] = chunk;
+        rebuildHierarchyPane();
+        selectObject(chunk);
+        showEditorNotification(`Generated ${chunk.name} (${chunk.userData.totalBlocks} blocks)`);
         closeGeneratorModal();
 
       } else {
@@ -3977,6 +4210,28 @@
 
     // === SOLID PHYSICS & COLLISION SYSTEM ===
     function checkCollisionAtPosition(targetPos, playerRadius = 0.45) {
+      // 1. Check Minecraft Voxel Chunks Heightmap Collision
+      const voxelChunks = [];
+      scene.traverse(obj => {
+        if (obj.userData && obj.userData.isVoxelChunk && obj.visible) {
+          voxelChunks.push(obj);
+        }
+      });
+      for (let v = 0; v < voxelChunks.length; v++) {
+        const chunk = voxelChunks[v];
+        const b = chunk.userData.bounds;
+        if (!b) continue;
+        const relX = targetPos.x - chunk.position.x;
+        const relZ = targetPos.z - chunk.position.z;
+        if (relX >= b.minX && relX <= b.maxX && relZ >= b.minZ && relZ <= b.maxZ) {
+          const colX = Math.floor((relX - b.minX) / b.blockSize);
+          const colZ = Math.floor((relZ - b.minZ) / b.blockSize);
+          const topBlockY = (chunk.userData.heightmap[`${colX}_${colZ}`] || 0) + chunk.position.y;
+          if (targetPos.y - 1.4 < topBlockY) {
+            return { collided: true, mesh: chunk, name: chunk.name + '_VoxelBlock' };
+          }
+        }
+      }
       const colliders = [];
       scene.traverse(obj => {
         if (obj.isMesh) {
@@ -4125,6 +4380,7 @@
           showEditorNotification(`Generated 4-Stage Auto-LOD for ${name}`);
         }
       }
+      renderAttachedComponentsList(currentSelectedObject);
     }
 
     function quickActionSnapFloor() {
