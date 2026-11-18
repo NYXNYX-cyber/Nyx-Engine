@@ -1216,11 +1216,11 @@
   <script src="/libs/GLTFLoader.js"></script>
   <script src="/libs/OBJLoader.js"></script>
   <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
-  <script src="/js/smart_components.js?v=2"></script>
-  <script src="/js/procedural_suite.js?v=2"></script>
-  <script src="/js/fps_genre_kit.js?v=2"></script>
-  <script src="/js/rpg_genre_kit.js?v=2"></script>
-  <script src="/js/openworld_ai_kit.js?v=2"></script>
+  <script src="/js/smart_components.js?v=1794962170"></script>
+  <script src="/js/procedural_suite.js?v=1794962170"></script>
+  <script src="/js/fps_genre_kit.js?v=1794962170"></script>
+  <script src="/js/rpg_genre_kit.js?v=1794962170"></script>
+  <script src="/js/openworld_ai_kit.js?v=1794962170"></script>
 </head>
 <body>
 
@@ -4363,6 +4363,7 @@
         window.NyxSmartComponents.applyAutoCollider3D(currentSelectedObject, 'box');
         showEditorNotification(`Generated Auto-Collider for ${currentSelectedObject.name}`);
       }
+      renderAttachedComponentsList(currentSelectedObject);
     }
 
     function quickActionAutoLOD() {
@@ -4390,6 +4391,7 @@
       syncInspectorCoords();
       if (typeof gizmoGroup !== 'undefined' && gizmoGroup) gizmoGroup.position.copy(currentSelectedObject.position);
       showEditorNotification(`Snapped ${currentSelectedObject.name} to Floor Y=0`);
+      renderAttachedComponentsList(currentSelectedObject);
     }
 
     function quickActionDestructible() {
@@ -4397,6 +4399,7 @@
       currentSelectedObject.userData.isDestructible = true;
       currentSelectedObject.userData.hasCollision = true;
       showEditorNotification(`Marked ${currentSelectedObject.name} as Destructible`);
+      renderAttachedComponentsList(currentSelectedObject);
     }
 
 
@@ -4997,15 +5000,13 @@
 
     // SCENE OBJECT SERIALIZATION & PERSISTENCE TO RUST SQLITE
     function clearSceneUserObjects() {
+      const systemNames = new Set(['SunLight', 'Directional_SunLight', 'EditorAmbient', 'EditorGrid', 'Editor_Grid', 'SnowParticles', 'Flashlight', 'Main_Camera', 'Main_Camera_Helper']);
       const toRemove = [];
       scene.children.forEach(obj => {
-        if (obj.userData && obj.userData.isUserObject) {
-          toRemove.push(obj);
-        } else if (obj.name && ['Default_Cube'].includes(obj.name)) {
-          toRemove.push(obj);
-        } else if (obj.name && (obj.name.startsWith('Door_') || obj.name.startsWith('Stateroom_Door_') || obj.name.startsWith('Main_') || obj.name.startsWith('Modular_Corridor_') || obj.name.startsWith('Terrain_') || obj.name.startsWith('Lore_') || obj.name.includes('_Copy_'))) {
-          toRemove.push(obj);
-        }
+        if (!obj.name) return;
+        if (systemNames.has(obj.name)) return;
+        if (obj === gizmoGroup || obj === selectionWireframe || obj === camera || obj === worldGroup || obj === corridorGroup || obj === submersibleGroup || obj === clockGroup || obj === anomalyGroup) return;
+        toRemove.push(obj);
       });
 
       toRemove.forEach(obj => {
@@ -5016,10 +5017,18 @@
         removeHierarchyItem(obj.name);
       });
 
+      // Also clean up any lingering registered user objects in editorObjects
+      Object.keys(editorObjects).forEach(name => {
+        if (!systemNames.has(name) && !['SunLight', 'EditorAmbient', 'EditorGrid', 'SnowParticles', 'Flashlight', 'Main_Camera'].includes(name)) {
+          delete editorObjects[name];
+        }
+      });
+
       currentSelectedObject = null;
       if (typeof selectionWireframe !== 'undefined' && selectionWireframe) selectionWireframe.visible = false;
       if (typeof gizmoGroup !== 'undefined' && gizmoGroup) gizmoGroup.visible = false;
       if (typeof HistoryManager !== 'undefined' && HistoryManager.clear) HistoryManager.clear();
+      rebuildHierarchyPane();
     }
 
     function serializeSceneObjects() {
