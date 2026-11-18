@@ -1216,11 +1216,11 @@
   <script src="/libs/GLTFLoader.js"></script>
   <script src="/libs/OBJLoader.js"></script>
   <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
-  <script src="/js/smart_components.js?v=20261118_v1"></script>
-  <script src="/js/procedural_suite.js?v=1794980370"></script>
-  <script src="/js/fps_genre_kit.js?v=20261118_v1"></script>
-  <script src="/js/rpg_genre_kit.js?v=20261118_v1"></script>
-  <script src="/js/openworld_ai_kit.js?v=20261118_v1"></script>
+  <script src="/js/smart_components.js?v=20261118_solid1"></script>
+  <script src="/js/procedural_suite.js?v=20261118_solid1"></script>
+  <script src="/js/fps_genre_kit.js?v=20261118_solid1"></script>
+  <script src="/js/rpg_genre_kit.js?v=20261118_solid1"></script>
+  <script src="/js/openworld_ai_kit.js?v=20261118_solid1"></script>
 </head>
 <body>
 
@@ -4350,34 +4350,62 @@
       }
     }
 
-    // === SOLID PHYSICS & COLLISION SYSTEM ===
+    // === SOLID PHYSICS & MULTI-DIRECTIONAL COLLISION SYSTEM ===
     function checkCollisionAtPosition(targetPos, playerRadius = 0.45) {
-      // 1. Check Minecraft Voxel Chunks Heightmap Collision
+      const feetY = targetPos.y - PLAYER_EYE_HEIGHT;
+      const headY = targetPos.y + 0.2;
+      const STEP_OFFSET = 0.35; // Maximum walkable step height (standard Unity CharacterController)
+
+      // 1. Check Minecraft Voxel Chunks Lateral & Frontal Wall Collision
       const voxelChunks = [];
       scene.traverse(obj => {
         if (obj.userData && obj.userData.isVoxelChunk && obj.visible) {
           voxelChunks.push(obj);
         }
       });
+
       for (let v = 0; v < voxelChunks.length; v++) {
         const chunk = voxelChunks[v];
         const b = chunk.userData.bounds;
         if (!b) continue;
-        const relX = targetPos.x - chunk.position.x;
-        const relZ = targetPos.z - chunk.position.z;
-        if (relX >= b.minX && relX <= b.maxX && relZ >= b.minZ && relZ <= b.maxZ) {
-          const colX = Math.floor((relX - b.minX) / b.blockSize);
-          const colZ = Math.floor((relZ - b.minZ) / b.blockSize);
-          const topBlockY = (chunk.userData.heightmap[`${colX}_${colZ}`] || 0) + chunk.position.y;
-          if (targetPos.y - 1.4 < topBlockY) {
-            return { collided: true, mesh: chunk, name: chunk.name + '_VoxelBlock' };
+
+        // Player AABB relative to chunk
+        const minRelX = (targetPos.x - playerRadius) - chunk.position.x;
+        const maxRelX = (targetPos.x + playerRadius) - chunk.position.x;
+        const minRelZ = (targetPos.z - playerRadius) - chunk.position.z;
+        const maxRelZ = (targetPos.z + playerRadius) - chunk.position.z;
+
+        // Check if player horizontal volume overlaps the chunk bounds
+        if (maxRelX >= b.minX && minRelX <= b.maxX && maxRelZ >= b.minZ && minRelZ <= b.maxZ) {
+          const colMinX = Math.max(0, Math.floor((minRelX - b.minX) / b.blockSize));
+          const colMaxX = Math.min(b.sizeX - 1, Math.floor((maxRelX - b.minX) / b.blockSize));
+          const colMinZ = Math.max(0, Math.floor((minRelZ - b.minZ) / b.blockSize));
+          const colMaxZ = Math.min(b.sizeZ - 1, Math.floor((maxRelZ - b.minZ) / b.blockSize));
+
+          for (let cx = colMinX; cx <= colMaxX; cx++) {
+            for (let cz = colMinZ; cz <= colMaxZ; cz++) {
+              const blockH = chunk.userData.heightmap[`${cx}_${cz}`];
+              if (blockH === undefined) continue;
+
+              // The true top surface of the solid block column in world coordinates:
+              const colTopY = blockH + b.blockSize + chunk.position.y;
+
+              // If block is higher than walkable step (wall / cliff / obstacle):
+              if (colTopY > feetY + STEP_OFFSET) {
+                // If the player's body span vertically intersects the solid block column:
+                if (feetY < colTopY) {
+                  return { collided: true, mesh: chunk, name: `${chunk.name}_VoxelWall_(${cx},${cz})` };
+                }
+              }
+            }
           }
         }
       }
+
+      // 2. Standard 3D Colliders (Meshes, Crates, Prefabs, Walls, Doors)
       const colliders = [];
       scene.traverse(obj => {
         if (obj.isMesh) {
-          // Check that mesh and all ancestor groups are visible!
           let curr = obj;
           let isVis = true;
           while (curr) {
@@ -4389,16 +4417,19 @@
           // Exclude editor helpers, particles, and inspect/pickup triggers
           if (['EditorGrid', 'SnowParticles', 'Main_Camera_Helper'].includes(obj.name)) return;
           if (obj.userData && (obj.userData.type === 'inspect' || obj.userData.type === 'pickup')) return;
-          
-          // Collide with all generator prefabs, doors, corridors, walls, terrain, and meshes
           if (obj.userData && obj.userData.hasCollision === false) return;
+          // Skip voxel chunk meshes since heightmap handles voxel blocks with precision above
+          if (obj.parent && obj.parent.userData && obj.parent.userData.isVoxelChunk) return;
+
           colliders.push(obj);
         }
       });
 
-      const playerBox = new THREE.Box3(
-        new THREE.Vector3(targetPos.x - playerRadius, targetPos.y - 1.4, targetPos.z - playerRadius),
-        new THREE.Vector3(targetPos.x + playerRadius, targetPos.y + 0.2, targetPos.z + playerRadius)
+      // Player physical body box: from feet + STEP_OFFSET up to head
+      // (Starting at feet + STEP_OFFSET prevents being blocked by the flat floor you walk on)
+      const playerBodyBox = new THREE.Box3(
+        new THREE.Vector3(targetPos.x - playerRadius, feetY + STEP_OFFSET, targetPos.z - playerRadius),
+        new THREE.Vector3(targetPos.x + playerRadius, headY, targetPos.z + playerRadius)
       );
 
       for (let i = 0; i < colliders.length; i++) {
@@ -4413,14 +4444,11 @@
         if (parentDoor && parentDoor.userData && parentDoor.userData.isOpen) {
           const doorWorldPos = new THREE.Vector3();
           parentDoor.getWorldPosition(doorWorldPos);
-          // Only check collision against the swung door leaf if close to it
           const leafBox = new THREE.Box3().setFromObject(mesh);
-          if (playerBox.intersectsBox(leafBox)) {
-            // Check if player is near door pivot / leaf or passing through opening
+          if (playerBodyBox.intersectsBox(leafBox)) {
             const distToPivot = new THREE.Vector2(targetPos.x - doorWorldPos.x, targetPos.z - doorWorldPos.z).length();
             if (distToPivot > 0.6) {
-              // Passing through clear doorway opening
-              continue;
+              continue; // passing through open doorway
             }
             return { collided: true, mesh: mesh, name: parentDoor.name + '_Leaf' };
           }
@@ -4428,8 +4456,11 @@
         }
 
         const meshBox = new THREE.Box3().setFromObject(mesh);
-        if (playerBox.intersectsBox(meshBox)) {
-          return { collided: true, mesh: mesh, name: mesh.name || (parentDoor ? parentDoor.name : 'Collider') };
+        // Only block if the obstacle extends higher than the walkable step height
+        if (meshBox.max.y > feetY + STEP_OFFSET) {
+          if (playerBodyBox.intersectsBox(meshBox)) {
+            return { collided: true, mesh: mesh, name: mesh.name || (parentDoor ? parentDoor.name : 'Collider') };
+          }
         }
       }
 
