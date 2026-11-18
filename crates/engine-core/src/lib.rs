@@ -1,4 +1,5 @@
 pub mod physics;
+pub mod voxel;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

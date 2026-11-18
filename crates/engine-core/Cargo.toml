@@ -8,3 +8,4 @@ serde = { workspace = true }
 bincode = { workspace = true }
 
 rapier3d = "0.22.0"
+rayon = "1.12.0"

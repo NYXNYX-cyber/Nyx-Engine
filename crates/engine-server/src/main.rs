@@ -4,7 +4,7 @@ mod db;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, State,
+        Path, Query, State,
     },
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
@@ -12,7 +12,10 @@ use axum::{
     Json, Router,
 };
 use db::Database;
-use engine_core::{ClientMessage, Player, PlayerInput, ServerMessage, WorldState};
+use engine_core::{
+    voxel::{VoxelGenerator, VoxelWorldParams},
+    ClientMessage, Player, PlayerInput, ServerMessage, WorldState,
+};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -140,6 +143,9 @@ async fn main() {
         // API Projects
         .route("/api/projects", get(api_list_projects).post(api_save_project))
         .route("/api/projects/:id", get(api_get_project).put(api_update_project).delete(api_delete_project))
+        // Voxel World Procedural Generation (Linux Multi-Core CPU Offload)
+        .route("/api/world/voxel-chunk", get(api_generate_voxel_chunk))
+        .route("/api/world/voxel-region", post(api_generate_voxel_region))
         // Real-time Engine WebSocket
         .route("/ws", get(ws_handler))
         // Static Web Game Engine Studio
@@ -498,4 +504,77 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     if let Ok(json) = serde_json::to_string(&left_msg) {
         let _ = state.tx_broadcast.send(json);
     }
+}
+
+// === VOXEL PROCEDURAL GENERATOR HANDLERS (LINUX MULTI-CORE) ===
+
+#[derive(Deserialize)]
+pub struct VoxelChunkQuery {
+    pub size_x: Option<usize>,
+    pub size_z: Option<usize>,
+    pub max_height: Option<usize>,
+    pub base_height: Option<usize>,
+    pub sea_level: Option<usize>,
+    pub block_size: Option<f32>,
+    pub seed: Option<u32>,
+    pub spawn_trees: Option<bool>,
+    pub spawn_ores: Option<bool>,
+    pub enable_culling: Option<bool>,
+    pub chunk_x: Option<i32>,
+    pub chunk_z: Option<i32>,
+}
+
+async fn api_generate_voxel_chunk(
+    Query(q): Query<VoxelChunkQuery>,
+) -> impl IntoResponse {
+    let now_seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(12345))
+        .as_micros() as u32;
+
+    let params = VoxelWorldParams {
+        size_x: q.size_x.unwrap_or(16),
+        size_z: q.size_z.unwrap_or(16),
+        max_height: q.max_height.unwrap_or(10),
+        base_height: q.base_height.unwrap_or(3),
+        sea_level: q.sea_level.unwrap_or(3),
+        block_size: q.block_size.unwrap_or(1.0),
+        seed: q.seed.unwrap_or(now_seed),
+        spawn_trees: q.spawn_trees.unwrap_or(true),
+        spawn_ores: q.spawn_ores.unwrap_or(true),
+        enable_culling: q.enable_culling.unwrap_or(true),
+    };
+    let chunk_x = q.chunk_x.unwrap_or(0);
+    let chunk_z = q.chunk_z.unwrap_or(0);
+
+    // Spawns CPU-intensive voxel math onto Tokio blocking thread pool
+    let chunk = tokio::task::spawn_blocking(move || {
+        VoxelGenerator::generate_chunk(chunk_x, chunk_z, &params)
+    })
+    .await
+    .unwrap_or_else(|_| VoxelGenerator::generate_chunk(chunk_x, chunk_z, &VoxelWorldParams::default()));
+
+    (StatusCode::OK, Json(chunk))
+}
+
+#[derive(Deserialize)]
+pub struct VoxelRegionRequest {
+    pub radius_chunks: Option<i32>,
+    pub params: Option<VoxelWorldParams>,
+}
+
+async fn api_generate_voxel_region(
+    Json(payload): Json<VoxelRegionRequest>,
+) -> impl IntoResponse {
+    let radius = payload.radius_chunks.unwrap_or(1).clamp(0, 4);
+    let params = payload.params.unwrap_or_default();
+
+    // Spreads generation across all Linux CPU cores simultaneously using Rayon
+    let chunks = tokio::task::spawn_blocking(move || {
+        VoxelGenerator::generate_region_parallel(radius, &params)
+    })
+    .await
+    .unwrap_or_default();
+
+    (StatusCode::OK, Json(chunks))
 }

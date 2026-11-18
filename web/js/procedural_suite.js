@@ -337,16 +337,18 @@ const NyxProceduralSuite = {
   },
 
   // 5. PROCEDURAL MINECRAFT VOXEL TERRAIN GENERATOR
-  generateVoxelMinecraftWorld(params = {}) {
+    async generateVoxelMinecraftWorld(params = {}) {
     const sizeX = params.sizeX || 16; // Block columns X (e.g. 16x16 standard Minecraft chunk)
     const sizeZ = params.sizeZ || 16; // Block columns Z
     const maxHeight = params.maxHeight || 10;
     const baseHeight = params.baseHeight || 3;
     const blockSize = params.blockSize || 1.0;
     const seaLevel = params.seaLevel || 3;
-    const seed = params.seed || Math.floor(Math.random() * 10000);
+    const seed = params.seed || Math.floor(Math.random() * 100000);
     const spawnTrees = params.spawnTrees !== false;
     const spawnOres = params.spawnOres !== false;
+    const enableCulling = params.enableCulling !== false;
+    const backend = params.backend || 'server'; // 'server' (Rust CPU) or 'client'
 
     const chunkGroup = new THREE.Group();
     const chunkName = `Minecraft_Chunk_${Date.now().toString().slice(-4)}`;
@@ -420,102 +422,181 @@ const NyxProceduralSuite = {
       water: []
     };
 
+    const typeMapping = {
+      1: 'grass',
+      2: 'dirt',
+      3: 'stone',
+      4: 'ore',
+      5: 'water',
+      6: 'wood',
+      7: 'leaves'
+    };
+
     const heightmap = {};
     const halfX = (sizeX * blockSize) / 2;
     const halfZ = (sizeZ * blockSize) / 2;
 
-    const spawnedTrees = [];
+    let serverData = null;
+    let usedBackend = 'Client Engine (Local)';
+    let genTimeMs = 0;
+    let totalComputedBlocks = 0;
+    let culledBlocksCount = 0;
 
-    // 1. Calculate discrete block heights using stepped noise
-    for (let x = 0; x < sizeX; x++) {
-      for (let z = 0; z < sizeZ; z++) {
-        const nx = (x + seed) * 0.12;
-        const nz = (z + seed) * 0.12;
-        
-        // Multi-octave Stepped Simplex-like Perlin approximation
-        let n = Math.sin(nx) * Math.cos(nz);
-        n += Math.sin(nx * 2.2 + 1.5) * Math.cos(nz * 2.2 + 0.8) * 0.45;
-        n += Math.sin(nx * 4.5 + 2.1) * Math.cos(nz * 4.5 + 3.2) * 0.2;
+    // === PIPELINE A: LINUX RUST MULTI-CORE SERVER OFFLOAD ===
+    if (backend === 'server') {
+      try {
+        const tStart = performance.now();
+        const query = new URLSearchParams({
+          size_x: sizeX,
+          size_z: sizeZ,
+          max_height: maxHeight,
+          base_height: baseHeight,
+          sea_level: seaLevel,
+          block_size: blockSize,
+          seed: seed,
+          spawn_trees: spawnTrees,
+          spawn_ores: spawnOres,
+          enable_culling: enableCulling,
+          chunk_x: params.chunkX || 0,
+          chunk_z: params.chunkZ || 0
+        });
+        const resp = await fetch(`/api/world/voxel-chunk?${query.toString()}`);
+        if (resp.ok) {
+          serverData = await resp.json();
+          usedBackend = 'Linux Rust Multi-Core CPU (Tokio/Rayon)';
+          genTimeMs = serverData.generation_time_ms;
+          totalComputedBlocks = serverData.total_blocks_computed;
+          culledBlocksCount = serverData.culled_blocks_count;
 
-        const h = Math.floor(baseHeight + (n + 1.0) * 0.5 * (maxHeight - baseHeight));
-        const finalHeight = Math.max(1, Math.min(maxHeight, h));
+          // Unpack heightmap from Rust server
+          if (Array.isArray(serverData.heightmap)) {
+            serverData.heightmap.forEach(item => {
+              heightmap[`${item[0]}_${item[1]}`] = item[2];
+            });
+          }
 
-        heightmap[`${x}_${z}`] = finalHeight * blockSize;
-
-        const worldX = (x * blockSize) - halfX + (blockSize / 2);
-        const worldZ = (z * blockSize) - halfZ + (blockSize / 2);
-
-        // Fill vertical column with blocks
-        for (let y = 0; y <= finalHeight; y++) {
-          const worldY = (y * blockSize) + (blockSize / 2);
-          const mat4 = new THREE.Matrix4().setPosition(worldX, worldY, worldZ);
-
-          if (y === finalHeight) {
-            if (y >= seaLevel) {
-              blockInstances.grass.push(mat4);
-            } else {
-              blockInstances.dirt.push(mat4);
-            }
-          } else if (y >= finalHeight - 2) {
-            blockInstances.dirt.push(mat4);
-          } else {
-            // Underground stone or rare ore
-            if (spawnOres && Math.random() < 0.08 && y < 4) {
-              blockInstances.ore.push(mat4);
-            } else {
-              blockInstances.stone.push(mat4);
-            }
+          // Unpack culled visible blocks from Rust server
+          if (Array.isArray(serverData.blocks)) {
+            serverData.blocks.forEach(b => {
+              const typeName = typeMapping[b.block_type] || 'dirt';
+              const m = new THREE.Matrix4().setPosition(b.x, b.y, b.z);
+              if (blockInstances[typeName]) {
+                blockInstances[typeName].push(m);
+              }
+            });
           }
         }
+      } catch (err) {
+        console.warn('[NyxEngine] Rust Voxel endpoint unreachable, falling back to client generation:', err);
+      }
+    }
 
-        // Fill water bodies if below sea level
-        if (finalHeight < seaLevel) {
-          for (let w = finalHeight + 1; w <= seaLevel; w++) {
-            const worldY = (w * blockSize) + (blockSize / 2);
+    // === PIPELINE B: CLIENT BROWSER GENERATION (WITH 3D CULLING) ===
+    if (!serverData) {
+      const tStart = performance.now();
+      const spawnedTrees = [];
+
+      // 1. Calculate discrete block heights using stepped noise
+      for (let x = 0; x < sizeX; x++) {
+        for (let z = 0; z < sizeZ; z++) {
+          const nx = (x + seed) * 0.12;
+          const nz = (z + seed) * 0.12;
+          
+          let n = Math.sin(nx) * Math.cos(nz);
+          n += Math.sin(nx * 2.2 + 1.5) * Math.cos(nz * 2.2 + 0.8) * 0.45;
+          n += Math.sin(nx * 4.5 + 2.1) * Math.cos(nz * 4.5 + 3.2) * 0.2;
+
+          const h = Math.floor(baseHeight + (n + 1.0) * 0.5 * (maxHeight - baseHeight));
+          const finalHeight = Math.max(1, Math.min(maxHeight, h));
+
+          heightmap[`${x}_${z}`] = finalHeight * blockSize;
+
+          const worldX = (x * blockSize) - halfX + (blockSize / 2);
+          const worldZ = (z * blockSize) - halfZ + (blockSize / 2);
+
+          // Fill vertical column with blocks
+          for (let y = 0; y <= finalHeight; y++) {
+            totalComputedBlocks++;
+            // Client-side Hidden Face Culling: skip buried underground stone/dirt
+            if (enableCulling && y < finalHeight - 2 && y > 0 && x > 0 && x < sizeX - 1 && z > 0 && z < sizeZ - 1) {
+              culledBlocksCount++;
+              continue;
+            }
+
+            const worldY = (y * blockSize) + (blockSize / 2);
             const mat4 = new THREE.Matrix4().setPosition(worldX, worldY, worldZ);
-            blockInstances.water.push(mat4);
-          }
-          heightmap[`${x}_${z}`] = seaLevel * blockSize;
-        }
 
-        // 2. Procedural Voxel Oak Trees (Strict Poisson Spacing - Never Merge/Nyambung!)
-        if (spawnTrees && finalHeight >= seaLevel + 1 && x > 2 && x < sizeX - 2 && z > 2 && z < sizeZ - 2) {
-          const isTooClose = spawnedTrees.some(t => Math.hypot(t.x - x, t.z - z) < 5.5);
-          const treeNoise = Math.sin(x * 12.5 + z * 33.1 + seed);
-
-          if (!isTooClose && treeNoise > 0.65 && spawnedTrees.length < 3) {
-            spawnedTrees.push({ x, z });
-            const treeBaseY = finalHeight + 1;
-            const treeTrunkH = 4;
-
-            // Wood Trunk
-            for (let ty = 0; ty < treeTrunkH; ty++) {
-              const wy = ((treeBaseY + ty) * blockSize) + (blockSize / 2);
-              const mWood = new THREE.Matrix4().setPosition(worldX, wy, worldZ);
-              blockInstances.wood.push(mWood);
-            }
-
-            // Leaves Canopy (3x3 cap)
-            const leafBaseY = treeBaseY + treeTrunkH - 1;
-            for (let lx = -1; lx <= 1; lx++) {
-              for (let lz = -1; lz <= 1; lz++) {
-                for (let ly = 0; ly < 2; ly++) {
-                  if (lx === 0 && lz === 0 && ly === 0) continue; // trunk inside
-                  const wx = worldX + (lx * blockSize);
-                  const wy = ((leafBaseY + ly) * blockSize) + (blockSize / 2);
-                  const wz = worldZ + (lz * blockSize);
-                  const mLeaf = new THREE.Matrix4().setPosition(wx, wy, wz);
-                  blockInstances.leaves.push(mLeaf);
-                }
+            if (y === finalHeight) {
+              if (y >= seaLevel) {
+                blockInstances.grass.push(mat4);
+              } else {
+                blockInstances.dirt.push(mat4);
+              }
+            } else if (y >= finalHeight - 2) {
+              blockInstances.dirt.push(mat4);
+            } else {
+              if (spawnOres && Math.random() < 0.08 && y < 4) {
+                blockInstances.ore.push(mat4);
+              } else {
+                blockInstances.stone.push(mat4);
               }
             }
+          }
 
-            // Crown top leaf
-            const crownM = new THREE.Matrix4().setPosition(worldX, ((leafBaseY + 2) * blockSize) + (blockSize / 2), worldZ);
-            blockInstances.leaves.push(crownM);
+          // Fill water bodies if below sea level
+          if (finalHeight < seaLevel) {
+            for (let w = finalHeight + 1; w <= seaLevel; w++) {
+              totalComputedBlocks++;
+              const worldY = (w * blockSize) + (blockSize / 2);
+              const mat4 = new THREE.Matrix4().setPosition(worldX, worldY, worldZ);
+              blockInstances.water.push(mat4);
+            }
+            heightmap[`${x}_${z}`] = seaLevel * blockSize;
+          }
+
+          // 2. Procedural Voxel Oak Trees
+          if (spawnTrees && finalHeight >= seaLevel + 1 && x > 2 && x < sizeX - 2 && z > 2 && z < sizeZ - 2) {
+            const isTooClose = spawnedTrees.some(t => Math.hypot(t.x - x, t.z - z) < 5.5);
+            const treeNoise = Math.sin(x * 12.5 + z * 33.1 + seed);
+
+            if (!isTooClose && treeNoise > 0.65 && spawnedTrees.length < 3) {
+              spawnedTrees.push({ x, z });
+              const treeBaseY = finalHeight + 1;
+              const treeTrunkH = 4;
+
+              // Wood Trunk
+              for (let ty = 0; ty < treeTrunkH; ty++) {
+                totalComputedBlocks++;
+                const wy = ((treeBaseY + ty) * blockSize) + (blockSize / 2);
+                const mWood = new THREE.Matrix4().setPosition(worldX, wy, worldZ);
+                blockInstances.wood.push(mWood);
+              }
+
+              // Leaves Canopy (3x3 cap)
+              const leafBaseY = treeBaseY + treeTrunkH - 1;
+              for (let lx = -1; lx <= 1; lx++) {
+                for (let lz = -1; lz <= 1; lz++) {
+                  for (let ly = 0; ly < 2; ly++) {
+                    if (lx === 0 && lz === 0 && ly === 0) continue;
+                    totalComputedBlocks++;
+                    const wx = worldX + (lx * blockSize);
+                    const wy = ((leafBaseY + ly) * blockSize) + (blockSize / 2);
+                    const wz = worldZ + (lz * blockSize);
+                    const mLeaf = new THREE.Matrix4().setPosition(wx, wy, wz);
+                    blockInstances.leaves.push(mLeaf);
+                  }
+                }
+              }
+
+              // Crown top leaf
+              totalComputedBlocks++;
+              const crownM = new THREE.Matrix4().setPosition(worldX, ((leafBaseY + 2) * blockSize) + (blockSize / 2), worldZ);
+              blockInstances.leaves.push(crownM);
+            }
           }
         }
       }
+      genTimeMs = performance.now() - tStart;
     }
 
     // Build GPU InstancedMeshes for 60 FPS performance
@@ -529,11 +610,11 @@ const NyxProceduralSuite = {
       water: matWater
     };
 
-    let totalBlocks = 0;
+    let totalVisibleBlocks = 0;
     Object.keys(blockInstances).forEach(type => {
       const arr = blockInstances[type];
       if (arr.length === 0) return;
-      totalBlocks += arr.length;
+      totalVisibleBlocks += arr.length;
 
       const instMesh = new THREE.InstancedMesh(boxGeo, mats[type], arr.length);
       instMesh.name = `Voxel_${type}`;
@@ -554,7 +635,11 @@ const NyxProceduralSuite = {
       objType: 'minecraft_voxel',
       isVoxelChunk: true,
       hasCollision: true,
-      totalBlocks: totalBlocks,
+      totalBlocks: totalVisibleBlocks,
+      totalComputed: totalComputedBlocks,
+      culledBlocks: culledBlocksCount,
+      generationTimeMs: genTimeMs,
+      backend: usedBackend,
       chunkParams: { sizeX, sizeZ, maxHeight, seaLevel, blockSize, seed },
       heightmap: heightmap,
       bounds: {
@@ -566,7 +651,7 @@ const NyxProceduralSuite = {
       }
     };
 
-    console.log(`[MinecraftVoxel] Generated voxel world "${chunkName}" with ${totalBlocks} blocks (Chunk: ${sizeX}x${sizeZ}, Sea: ${seaLevel})`);
+    console.log(`[MinecraftVoxel] Generated "${chunkName}" via ${usedBackend} in ${genTimeMs.toFixed(2)}ms. Computed: ${totalComputedBlocks}, Culled: ${culledBlocksCount} (${(culledBlocksCount/Math.max(1,totalComputedBlocks)*100).toFixed(1)}%), Visible Mesh Instances: ${totalVisibleBlocks}`);
     return chunkGroup;
   }
 };
