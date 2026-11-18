@@ -1216,11 +1216,11 @@
   <script src="/libs/GLTFLoader.js"></script>
   <script src="/libs/OBJLoader.js"></script>
   <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
-  <script src="/js/smart_components.js?v=1794962170"></script>
-  <script src="/js/procedural_suite.js?v=1794962170"></script>
-  <script src="/js/fps_genre_kit.js?v=1794962170"></script>
-  <script src="/js/rpg_genre_kit.js?v=1794962170"></script>
-  <script src="/js/openworld_ai_kit.js?v=1794962170"></script>
+  <script src="/js/smart_components.js?v=20261118_v1"></script>
+  <script src="/js/procedural_suite.js?v=20261118_v1"></script>
+  <script src="/js/fps_genre_kit.js?v=20261118_v1"></script>
+  <script src="/js/rpg_genre_kit.js?v=20261118_v1"></script>
+  <script src="/js/openworld_ai_kit.js?v=20261118_v1"></script>
 </head>
 <body>
 
@@ -5003,9 +5003,16 @@
       const systemNames = new Set(['SunLight', 'Directional_SunLight', 'EditorAmbient', 'EditorGrid', 'Editor_Grid', 'SnowParticles', 'Flashlight', 'Main_Camera', 'Main_Camera_Helper']);
       const toRemove = [];
       scene.children.forEach(obj => {
-        if (!obj.name) return;
+        if (!obj || !obj.name) return;
         if (systemNames.has(obj.name)) return;
-        if (obj === gizmoGroup || obj === selectionWireframe || obj === camera || obj === worldGroup || obj === corridorGroup || obj === submersibleGroup || obj === clockGroup || obj === anomalyGroup) return;
+        if (typeof gizmoGroup !== 'undefined' && obj === gizmoGroup) return;
+        if (typeof selectionWireframe !== 'undefined' && obj === selectionWireframe) return;
+        if (typeof camera !== 'undefined' && obj === camera) return;
+        if (typeof worldGroup !== 'undefined' && obj === worldGroup) return;
+        if (typeof corridorGroup !== 'undefined' && obj === corridorGroup) return;
+        if (typeof submersibleGroup !== 'undefined' && obj === submersibleGroup) return;
+        if (typeof clockGroup !== 'undefined' && obj === clockGroup) return;
+        if (typeof anomalyGroup !== 'undefined' && obj === anomalyGroup) return;
         toRemove.push(obj);
       });
 

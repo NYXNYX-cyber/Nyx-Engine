@@ -424,6 +424,8 @@ const NyxProceduralSuite = {
     const halfX = (sizeX * blockSize) / 2;
     const halfZ = (sizeZ * blockSize) / 2;
 
+    const spawnedTrees = [];
+
     // 1. Calculate discrete block heights using stepped noise
     for (let x = 0; x < sizeX; x++) {
       for (let z = 0; z < sizeZ; z++) {
@@ -476,11 +478,13 @@ const NyxProceduralSuite = {
           heightmap[`${x}_${z}`] = seaLevel * blockSize;
         }
 
-        // 2. Procedural Voxel Oak Trees
+        // 2. Procedural Voxel Oak Trees (Strict Poisson Spacing - Never Merge/Nyambung!)
         if (spawnTrees && finalHeight >= seaLevel + 1 && x > 2 && x < sizeX - 2 && z > 2 && z < sizeZ - 2) {
-          // Probability of tree
+          const isTooClose = spawnedTrees.some(t => Math.hypot(t.x - x, t.z - z) < 5.5);
           const treeNoise = Math.sin(x * 12.5 + z * 33.1 + seed);
-          if (treeNoise > 0.72) {
+
+          if (!isTooClose && treeNoise > 0.65 && spawnedTrees.length < 3) {
+            spawnedTrees.push({ x, z });
             const treeBaseY = finalHeight + 1;
             const treeTrunkH = 4;
 
