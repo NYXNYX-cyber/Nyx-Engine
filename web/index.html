@@ -1216,11 +1216,11 @@
   <script src="/libs/GLTFLoader.js"></script>
   <script src="/libs/OBJLoader.js"></script>
   <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
-  <script src="/js/smart_components.js?v=20261118_solid1"></script>
-  <script src="/js/procedural_suite.js?v=20261118_ores60fps"></script>
-  <script src="/js/fps_genre_kit.js?v=20261118_solid1"></script>
-  <script src="/js/rpg_genre_kit.js?v=20261118_solid1"></script>
-  <script src="/js/openworld_ai_kit.js?v=20261118_solid1"></script>
+  <script src="/js/smart_components.js?v=20261118_clean1"></script>
+  <script src="/js/procedural_suite.js?v=20261118_clean1"></script>
+  <script src="/js/fps_genre_kit.js?v=20261118_clean1"></script>
+  <script src="/js/rpg_genre_kit.js?v=20261118_clean1"></script>
+  <script src="/js/openworld_ai_kit.js?v=20261118_clean1"></script>
 </head>
 <body>
 
@@ -1918,6 +1918,11 @@
     const scene = new THREE.Scene();
     const editorObjects = {};
     const prefabLibrary = {};
+    let currentProject = null;
+    let selectedTemplate = 'blank3d';
+    let gateMode = 'login';
+    let allUserProjects = [];
+    let selectedProjectId = null;
     let selectedAssetFileName = null;
     let draggedAssetName = null;
     scene.fog = new THREE.FogExp2(0x020409, 0.06);
@@ -2835,11 +2840,27 @@
       if (!e.shiftKey) moveKeys.shift = false;
     });
 
+    function isObjectVisibleInHierarchy(obj) {
+      if (!obj) return false;
+      let curr = obj;
+      while (curr) {
+        if (curr.visible === false) return false;
+        // If an ancestor is not attached to scene, it is not in the active scene graph!
+        if (curr.parent === null && curr !== scene) return false;
+        curr = curr.parent;
+      }
+      return true;
+    }
+
     function getSelectableObjects() {
       const list = [];
       scene.traverse(obj => {
         if (obj.isMesh && obj.visible) {
-          if (obj.name === 'EditorGrid' || obj.name === 'SnowParticles') return;
+          if (obj.name === 'EditorGrid' || obj.name === 'SnowParticles' || obj.name === 'Main_Camera_Helper') return;
+
+          // Strict ancestor visibility check: if any ancestor is hidden or detached, NOT selectable!
+          if (!isObjectVisibleInHierarchy(obj)) return;
+
           let p = obj.parent;
           let isGizmo = false;
           while (p) {
@@ -3069,16 +3090,34 @@
         }
       }
 
-      // Highlight active row in hierarchy pane
-      document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => {
-        const rowNorm = row.textContent.replace(/[\s_-]/g, '').toLowerCase();
-        const objNorm = name.replace(/[\s_-]/g, '').toLowerCase();
-        if (rowNorm.includes(objNorm) || objNorm.includes(rowNorm)) {
-          row.classList.add('selected');
+      // Synchronize Inspector Material & Narrative Component cards
+      const lorePane = document.getElementById('comp-titanic-lore');
+      if (lorePane) {
+        if (obj.userData && (obj.userData.type === 'inspect' || obj.userData.type === 'door')) {
+          lorePane.style.display = 'block';
+          const titleEl = document.getElementById('script-component-title');
+          if (titleEl) titleEl.textContent = obj.userData.type === 'door' ? 'Interactive Door (Hinge & Physics)' : `Lore Inspect: ${obj.userData.title || name}`;
         } else {
-          row.classList.remove('selected');
+          lorePane.style.display = 'none';
         }
-      });
+      }
+
+      const matPane = document.getElementById('comp-titanic-material');
+      if (matPane) {
+        if (obj.material || (obj.children && obj.children.some(c => c.material))) {
+          matPane.style.display = 'block';
+          const matObj = obj.material || (obj.children.find(c => c.material)?.material);
+          const matTitle = document.getElementById('insp-mat-name');
+          if (matTitle) matTitle.textContent = `Material (${matObj?.name || (name + '_Mat')})`;
+          const auraRow = document.getElementById('range-aura-insp')?.parentElement;
+          if (auraRow) auraRow.style.display = (name.includes('Clock') || name.includes('Titanic')) ? 'flex' : 'none';
+        } else {
+          matPane.style.display = 'none';
+        }
+      }
+
+      // Highlight active row in hierarchy pane and rebuild to keep 100% in sync
+      rebuildHierarchyPane();
 
       syncInspectorCoords();
       renderAttachedComponentsList(obj);
@@ -3091,6 +3130,23 @@
       gizmoGroup.visible = false;
       const fEl = document.getElementById('footer-sel-obj');
       if (fEl) fEl.textContent = 'None';
+      const nameEl = document.getElementById('insp-obj-name');
+      if (nameEl) nameEl.value = 'None';
+
+      // Clear coordinate inputs
+      ['pos-x','pos-y','pos-z','rot-x','rot-y','rot-z','scale-x','scale-y','scale-z'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '-';
+      });
+
+      // Hide conditional inspector cards
+      const camCtrlPane = document.getElementById('comp-camera-ctrl');
+      if (camCtrlPane) camCtrlPane.style.display = 'none';
+      const lorePane = document.getElementById('comp-titanic-lore');
+      if (lorePane) lorePane.style.display = 'none';
+      const matPane = document.getElementById('comp-titanic-material');
+      if (matPane) matPane.style.display = 'none';
+
       document.querySelectorAll('#hierarchy-tree-pane .tree-row').forEach(row => row.classList.remove('selected'));
     }
 
@@ -5188,8 +5244,10 @@
       }
       if (newMesh) {
         newMesh.position.set(camera.position.x, camera.position.y, camera.position.z - 3);
-        newMesh.userData = { name: `New_${type}_${Date.now() % 1000}` };
-        worldGroup.add(newMesh);
+        newMesh.userData = { name: `New_${type}_${Date.now() % 1000}`, isUserObject: true };
+        scene.add(newMesh);
+        editorObjects[newMesh.name] = newMesh;
+        rebuildHierarchyPane();
         selectObject(newMesh);
         logConsole(`[GameObject] Created new ${type} at (${newMesh.position.x.toFixed(1)}, ${newMesh.position.y.toFixed(1)}, ${newMesh.position.z.toFixed(1)})`);
       }
@@ -5374,15 +5432,15 @@
       const curName = (currentSelectedObject && (currentSelectedObject.name || currentSelectedObject.userData?.name)) || '';
 
       let html = `
-        <div class="tree-row ${curName === 'SunLight' || curName === 'Directional_SunLight' ? 'selected' : ''}" onclick="selectHierarchyItem('SunLight')">
+        <div class="tree-row ${curName === 'SunLight' || curName === 'Directional_SunLight' ? 'selected' : ''}" id="hier-row-SunLight" onclick="selectHierarchyItem('SunLight')">
           <span class="tree-arrow">▪</span>
           <span>Directional_SunLight</span>
         </div>
-        <div class="tree-row ${curName === 'Main_Camera' ? 'selected' : ''}" onclick="selectHierarchyItem('Main_Camera')">
+        <div class="tree-row ${curName === 'Main_Camera' ? 'selected' : ''}" id="hier-row-Main_Camera" onclick="selectHierarchyItem('Main_Camera')">
           <span class="tree-arrow">▪</span>
           <span>Main_Camera</span>
         </div>
-        <div class="tree-row ${curName === 'EditorGrid' || curName === 'Editor_Grid' ? 'selected' : ''}" onclick="selectHierarchyItem('EditorGrid')">
+        <div class="tree-row ${curName === 'EditorGrid' || curName === 'Editor_Grid' ? 'selected' : ''}" id="hier-row-EditorGrid" onclick="selectHierarchyItem('EditorGrid')">
           <span class="tree-arrow">▪</span>
           <span>Editor_Grid</span>
         </div>
@@ -5391,10 +5449,11 @@
       // System names to exclude from duplicate listing
       const seenNames = new Set(['SunLight', 'Directional_SunLight', 'EditorAmbient', 'EditorGrid', 'Editor_Grid', 'SnowParticles', 'Flashlight', 'Main_Camera', 'Main_Camera_Helper']);
 
-      // 1. Scan scene.children for all user objects
+      // 1. Scan direct visible scene children (excluding detached worldGroup and system helpers)
       scene.children.forEach(obj => {
-        if (!obj.name || seenNames.has(obj.name)) return;
-        if (obj === gizmoGroup || obj === selectionWireframe || obj === camera) return;
+        if (!obj || !obj.name || seenNames.has(obj.name)) return;
+        if (obj === gizmoGroup || obj === selectionWireframe || obj === camera || obj === worldGroup) return;
+        if (!isObjectVisibleInHierarchy(obj)) return;
         seenNames.add(obj.name);
 
         const isSel = (curName === obj.name);
@@ -5406,9 +5465,11 @@
         `;
       });
 
-      // 2. Also scan editorObjects for any registered entities
+      // 2. Also scan editorObjects for any registered entities (if visible in hierarchy)
       Object.keys(editorObjects).forEach(name => {
         if (seenNames.has(name)) return;
+        const obj = editorObjects[name];
+        if (!obj || !isObjectVisibleInHierarchy(obj)) return;
         seenNames.add(name);
 
         const isSel = (curName === name);
@@ -5419,6 +5480,17 @@
           </div>
         `;
       });
+
+      // 3. Guarantee currently selected object is listed in hierarchy if it is a visible user object
+      if (currentSelectedObject && currentSelectedObject.name && !seenNames.has(currentSelectedObject.name) && isObjectVisibleInHierarchy(currentSelectedObject)) {
+        seenNames.add(currentSelectedObject.name);
+        html += `
+          <div class="tree-row selected" id="hier-row-${currentSelectedObject.name}" onclick="selectHierarchyItem('${currentSelectedObject.name}')">
+            <span class="tree-arrow">▪</span>
+            <span style="font-weight:700; color:#38bdf8;">${currentSelectedObject.name}</span>
+          </div>
+        `;
+      }
 
       tree.innerHTML = html;
     }
@@ -5739,17 +5811,12 @@
 
 
     switchViewportTab('scene');
-    loadSceneByName('titanic');
+    // Start cleanly in blank workspace; Titanic template is only loaded if explicitly requested
+    buildBlank3DScene();
     animate();
   
     // ==========================================================
     // === PROFESSIONAL UNITY HUB SCRIPT LOGIC ===
-
-    let currentProject = null;
-    let selectedTemplate = 'blank3d';
-    let gateMode = 'login';
-    let allUserProjects = [];
-    let selectedProjectId = null;
 
     async function checkAuthAndInitHub() {
       // 1. Check if token & user were passed via URL query params from Portal (SSO)
@@ -6001,16 +6068,22 @@
     }
 
     function buildBlank3DScene() {
-      // 1. Hide ALL Titanic corridor, deep-sea snow particles & flashlight
-      if (typeof worldGroup !== 'undefined' && worldGroup) worldGroup.visible = false;
+      // 1. COMPLETELY REMOVE & DETACH Titanic worldGroup and Deep Sea objects from Scene Graph!
+      if (typeof worldGroup !== 'undefined' && worldGroup) {
+        scene.remove(worldGroup);
+        worldGroup.visible = false;
+      }
       const sp = scene.getObjectByName('SnowParticles');
-      if (sp) sp.visible = false;
+      if (sp) { scene.remove(sp); sp.visible = false; }
       const fl = camera.getObjectByName('Flashlight');
-      if (fl) fl.visible = false;
+      if (fl) { camera.remove(fl); fl.visible = false; }
       if (typeof clockGroup !== 'undefined' && clockGroup) clockGroup.visible = false;
       if (typeof corridorGroup !== 'undefined' && corridorGroup) corridorGroup.visible = false;
       if (typeof submersibleGroup !== 'undefined' && submersibleGroup) submersibleGroup.visible = false;
       if (typeof anomalyGroup !== 'undefined' && anomalyGroup) anomalyGroup.visible = false;
+
+      // Ensure no dangling selection of removed Titanic objects
+      deselectObject();
 
       // Update scene-switcher-select
       const sBox = document.getElementById('scene-switcher-select');
@@ -6058,11 +6131,20 @@
     }
 
     function buildDeepBelowScene() {
-      if (typeof worldGroup !== 'undefined' && worldGroup) worldGroup.visible = true;
+      if (typeof worldGroup !== 'undefined' && worldGroup) {
+        if (!scene.children.includes(worldGroup)) scene.add(worldGroup);
+        worldGroup.visible = true;
+      }
       const sp = scene.getObjectByName('SnowParticles');
-      if (sp) sp.visible = true;
+      if (sp) {
+        if (!scene.children.includes(sp)) scene.add(sp);
+        sp.visible = true;
+      }
       const fl = camera.getObjectByName('Flashlight');
-      if (fl) fl.visible = true;
+      if (fl) {
+        if (!camera.children.includes(fl)) camera.add(fl);
+        fl.visible = true;
+      }
       if (typeof clockGroup !== 'undefined' && clockGroup) clockGroup.visible = true;
       if (typeof corridorGroup !== 'undefined' && corridorGroup) corridorGroup.visible = true;
       
