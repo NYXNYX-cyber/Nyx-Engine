@@ -1217,7 +1217,7 @@
   <script src="/libs/OBJLoader.js"></script>
   <!-- NYX ENGINE MODULAR GENRE & GENERATOR SUITE -->
   <script src="/js/smart_components.js?v=20261118_solid1"></script>
-  <script src="/js/procedural_suite.js?v=20261118_solid1"></script>
+  <script src="/js/procedural_suite.js?v=20261118_ores60fps"></script>
   <script src="/js/fps_genre_kit.js?v=20261118_solid1"></script>
   <script src="/js/rpg_genre_kit.js?v=20261118_solid1"></script>
   <script src="/js/openworld_ai_kit.js?v=20261118_solid1"></script>
@@ -3725,11 +3725,29 @@
               </div>
             </div>
             <div class="gen-param-row">
+              <span class="gen-param-label">Mineral & Ore Abundance:</span>
+              <select class="gen-param-input" id="gen-vx-ore-density" style="color:#fbbf24; font-weight:600;">
+                <option value="1.0" selected>Authentic Minecraft (Coal, Iron, Gold, Rare Diamond)</option>
+                <option value="0.5">Scarce Survival (50% Fewer Veins)</option>
+                <option value="2.0">Rich Mining Basin (2x More Veins)</option>
+                <option value="0.0">No Ores (Pure Stone Underground)</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
+              <span class="gen-param-label">Diamond Ore Rarity:</span>
+              <select class="gen-param-input" id="gen-vx-diamond-rarity" style="color:#2de2d6; font-weight:600;">
+                <option value="0.004">Ultra Rare (0.4% - Bedrock Deep Only)</option>
+                <option value="0.008" selected>Authentic Rare (0.8% - Minecraft Default)</option>
+                <option value="0.020">Moderate (2.0% - Rich Diamond Veins)</option>
+                <option value="0.050">Abundant (5.0% - Diamond Paradise)</option>
+              </select>
+            </div>
+            <div class="gen-param-row">
               <span class="gen-param-label">Spawn Voxel Oak Trees:</span>
               <input type="checkbox" id="gen-vx-trees" checked style="accent-color:#206095; cursor:pointer;">
             </div>
             <div class="gen-param-row">
-              <span class="gen-param-label">Spawn Diamond & Ore Veins:</span>
+              <span class="gen-param-label">Include Mineral Veins:</span>
               <input type="checkbox" id="gen-vx-ores" checked style="accent-color:#206095; cursor:pointer;">
             </div>
           </div>
@@ -3984,13 +4002,19 @@
         const execBtn = document.getElementById('btn-gen-exec');
         if (execBtn) execBtn.textContent = '⚡ Computing on Linux Server CPU...';
         
+        const oresEnabled = document.getElementById('gen-vx-ores')?.checked !== false;
+        const oreDensity = oresEnabled ? (parseFloat(document.getElementById('gen-vx-ore-density')?.value) || 1.0) : 0.0;
+        const diamondRarity = parseFloat(document.getElementById('gen-vx-diamond-rarity')?.value) || 0.008;
+
         window.NyxProceduralSuite.generateVoxelMinecraftWorld({
           sizeX: parseInt(document.getElementById('gen-vx-x')?.value) || 16,
           sizeZ: parseInt(document.getElementById('gen-vx-z')?.value) || 16,
           maxHeight: parseInt(document.getElementById('gen-vx-h')?.value) || 10,
           seaLevel: parseInt(document.getElementById('gen-vx-sea')?.value) || 3,
           spawnTrees: document.getElementById('gen-vx-trees')?.checked,
-          spawnOres: document.getElementById('gen-vx-ores')?.checked,
+          spawnOres: oresEnabled,
+          diamondRarity: diamondRarity,
+          oreDensity: oreDensity,
           enableCulling: document.getElementById('gen-vx-cull')?.checked !== false,
           backend: document.getElementById('gen-vx-backend')?.value || 'server'
         }).then(chunk => {

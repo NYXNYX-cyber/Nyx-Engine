@@ -519,6 +519,8 @@ pub struct VoxelChunkQuery {
     pub seed: Option<u32>,
     pub spawn_trees: Option<bool>,
     pub spawn_ores: Option<bool>,
+    pub diamond_rarity: Option<f32>,
+    pub ore_density: Option<f32>,
     pub enable_culling: Option<bool>,
     pub chunk_x: Option<i32>,
     pub chunk_z: Option<i32>,
@@ -542,6 +544,8 @@ async fn api_generate_voxel_chunk(
         seed: q.seed.unwrap_or(now_seed),
         spawn_trees: q.spawn_trees.unwrap_or(true),
         spawn_ores: q.spawn_ores.unwrap_or(true),
+        diamond_rarity: q.diamond_rarity.unwrap_or(0.008),
+        ore_density: q.ore_density.unwrap_or(1.0),
         enable_culling: q.enable_culling.unwrap_or(true),
     };
     let chunk_x = q.chunk_x.unwrap_or(0);

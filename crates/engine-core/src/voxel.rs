@@ -9,19 +9,43 @@ pub enum BlockType {
     Grass = 1,
     Dirt = 2,
     Stone = 3,
-    Ore = 4,
+    OreDiamond = 4,
     Water = 5,
     Wood = 6,
     Leaves = 7,
+    OreCoal = 8,
+    OreIron = 9,
+    OreGold = 10,
 }
 
 impl BlockType {
     pub fn is_opaque(&self) -> bool {
-        matches!(self, BlockType::Grass | BlockType::Dirt | BlockType::Stone | BlockType::Ore | BlockType::Wood)
+        matches!(
+            self,
+            BlockType::Grass
+                | BlockType::Dirt
+                | BlockType::Stone
+                | BlockType::OreDiamond
+                | BlockType::OreCoal
+                | BlockType::OreIron
+                | BlockType::OreGold
+                | BlockType::Wood
+        )
     }
 
     pub fn is_solid(&self) -> bool {
-        matches!(self, BlockType::Grass | BlockType::Dirt | BlockType::Stone | BlockType::Ore | BlockType::Wood | BlockType::Leaves)
+        matches!(
+            self,
+            BlockType::Grass
+                | BlockType::Dirt
+                | BlockType::Stone
+                | BlockType::OreDiamond
+                | BlockType::OreCoal
+                | BlockType::OreIron
+                | BlockType::OreGold
+                | BlockType::Wood
+                | BlockType::Leaves
+        )
     }
 }
 
@@ -63,6 +87,8 @@ pub struct VoxelWorldParams {
     pub seed: u32,
     pub spawn_trees: bool,
     pub spawn_ores: bool,
+    pub diamond_rarity: f32, // 0.008 (0.8% - authentic rare Minecraft diamonds)
+    pub ore_density: f32,    // 1.0 = normal, 0.5 = scarce, 2.0 = rich
     pub enable_culling: bool,
 }
 
@@ -78,6 +104,8 @@ impl Default for VoxelWorldParams {
             seed: 12345,
             spawn_trees: true,
             spawn_ores: true,
+            diamond_rarity: 0.008,
+            ore_density: 1.0,
             enable_culling: true,
         }
     }
@@ -137,10 +165,34 @@ impl VoxelGenerator {
                     } else if y >= h.saturating_sub(2) {
                         BlockType::Dirt
                     } else {
-                        // Deep underground
-                        let ore_noise = ((x as f32 * 17.3 + y as f32 * 29.1 + z as f32 * 41.7).sin()).abs();
-                        if params.spawn_ores && y < 4 && ore_noise > 0.88 {
-                            BlockType::Ore
+                        // Deep underground mineral & ore distribution (Minecraft authentic rarity)
+                        if params.spawn_ores && params.ore_density > 0.0 {
+                            // 3D pseudo-random spatial hash
+                            let h_val = (((x as u32).wrapping_mul(374761393)
+                                ^ (y as u32).wrapping_mul(668265263)
+                                ^ (z as u32).wrapping_mul(3628273133)
+                                ^ params.seed) as f32) / 4294967295.0;
+
+                            let mult = params.ore_density;
+
+                            // 1. Diamond Ore: ONLY in deepest bedrock (y <= 2) and ultra-rare!
+                            if y <= 2 && h_val < (params.diamond_rarity * mult) {
+                                BlockType::OreDiamond
+                            }
+                            // 2. Gold Ore: Deep layer (y <= 4), rare (1.2%)
+                            else if y <= 4 && h_val > 0.10 && h_val < 0.10 + (0.012 * mult) {
+                                BlockType::OreGold
+                            }
+                            // 3. Iron Ore: Mid layer (y <= 8), moderate (3.0%)
+                            else if y <= 8 && h_val > 0.30 && h_val < 0.30 + (0.030 * mult) {
+                                BlockType::OreIron
+                            }
+                            // 4. Coal Ore: Upper stone layer (y >= 3), common (4.5%)
+                            else if y >= 3 && h_val > 0.50 && h_val < 0.50 + (0.045 * mult) {
+                                BlockType::OreCoal
+                            } else {
+                                BlockType::Stone
+                            }
                         } else {
                             BlockType::Stone
                         }
