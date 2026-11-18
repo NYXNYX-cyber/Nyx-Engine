@@ -1859,9 +1859,13 @@
               <span class="label-field" style="width:130px;">First-Person Walk</span>
               <input type="checkbox" id="chk-fps-controller" onchange="toggleFpsController(this.checked)" style="accent-color:#206095; cursor:pointer;">
             </div>
+            <div class="row-field" style="margin-top:6px;">
+              <span class="label-field" style="width:130px;">Enable Gravity</span>
+              <input type="checkbox" id="chk-player-gravity" onchange="togglePlayerGravity(this.checked)" checked style="accent-color:#206095; cursor:pointer;">
+            </div>
             <div style="font-size:10px; color:#94a3b8; margin-top:5px; line-height:1.4;">
-              [Checked] = Player can walk & look around in Play Mode.<br>
-              [Unchecked] = Camera stays still (static real game simulation).
+              [Walk] = WASD move & mouse look in Play Mode.<br>
+              [Gravity] = Falls if not stepping on collision (Unity-style). Space to Jump.
             </div>
           </div>
         </div>
@@ -1936,6 +1940,7 @@
       name: 'Main_Camera',
       isUserObject: false,
       hasFpsController: false, // Default: FALSE -> Camera STAYS STILL (DIAM) unless explicitly enabled!
+      hasGravity: true,        // Unity-style Rigidbody Gravity: falls if not standing on collision!
       fov: 65,
       near: 0.1,
       far: 100
@@ -2341,7 +2346,7 @@
 
     // === FREEDOM ENGINE CONTROLS: SCENE vs GAME ===
     let currentViewMode = 'scene';
-    let moveKeys = { w: false, s: false, a: false, d: false, q: false, e: false, shift: false };
+    let moveKeys = { w: false, s: false, a: false, d: false, q: false, e: false, shift: false, space: false };
     
     let isRightMouseDown = false;
     let isMiddleMouseDown = false;
@@ -2361,7 +2366,98 @@
       if (mainCameraObject) {
         mainCameraObject.userData.hasFpsController = checked;
         showEditorNotification(checked ? 'Enabled First-Person Movement on Main_Camera' : 'Disabled Movement — Camera will stay still');
+        renderAttachedComponentsList(mainCameraObject);
       }
+    }
+
+    function togglePlayerGravity(checked) {
+      if (mainCameraObject) {
+        mainCameraObject.userData.hasGravity = checked;
+        showEditorNotification(checked ? 'Enabled Rigidbody Gravity on Main_Camera' : 'Disabled Gravity — Free Float');
+        renderAttachedComponentsList(mainCameraObject);
+      }
+    }
+
+    // === UNITY-STYLE VERTICAL PHYSICS & GROUND COLLISION SYSTEM ===
+    let playerVelocityY = 0;
+    let isPlayerGrounded = false;
+    const PLAYER_GRAVITY = -18.0;      // m/s^2 crisp Unity-style gravity
+    const PLAYER_JUMP_FORCE = 6.8;     // m/s jump impulse
+    const PLAYER_EYE_HEIGHT = 1.6;     // Eye level above feet in meters
+    const TERMINAL_FALL_SPEED = -45.0; // Max fall speed
+
+    function getGroundHeightAt(x, y, z) {
+      let highestGround = null;
+      const currentFeetY = y - PLAYER_EYE_HEIGHT;
+
+      // A. Minecraft Voxel Chunks Heightmap Check
+      const voxelChunks = [];
+      scene.traverse(obj => {
+        if (obj.userData && obj.userData.isVoxelChunk && obj.visible) {
+          voxelChunks.push(obj);
+        }
+      });
+
+      for (let v = 0; v < voxelChunks.length; v++) {
+        const chunk = voxelChunks[v];
+        const b = chunk.userData.bounds;
+        if (!b) continue;
+        const relX = x - chunk.position.x;
+        const relZ = z - chunk.position.z;
+        if (relX >= b.minX && relX <= b.maxX && relZ >= b.minZ && relZ <= b.maxZ) {
+          const colX = Math.floor((relX - b.minX) / b.blockSize);
+          const colZ = Math.floor((relZ - b.minZ) / b.blockSize);
+          const blockH = chunk.userData.heightmap[`${colX}_${colZ}`];
+          if (blockH !== undefined) {
+            // Block top surface Y
+            const topBlockY = blockH + b.blockSize + chunk.position.y;
+            // Valid ground if below or within step-up tolerance (0.65m)
+            if (topBlockY <= currentFeetY + 0.65) {
+              if (highestGround === null || topBlockY > highestGround) {
+                highestGround = topBlockY;
+              }
+            }
+          }
+        }
+      }
+
+      // B. Downward Raycast against all standard 3D Colliders (floors, terrains, meshes)
+      const colliders = [];
+      scene.traverse(obj => {
+        if (obj.isMesh) {
+          let curr = obj;
+          let isVis = true;
+          while (curr) {
+            if (curr.visible === false) { isVis = false; break; }
+            curr = curr.parent;
+          }
+          if (!isVis) return;
+          if (['EditorGrid', 'SnowParticles', 'Main_Camera_Helper'].includes(obj.name)) return;
+          if (obj.userData && (obj.userData.type === 'inspect' || obj.userData.type === 'pickup')) return;
+          if (obj.userData && obj.userData.hasCollision === false) return;
+          if (obj.parent && obj.parent.userData && obj.parent.userData.isVoxelChunk) return;
+          colliders.push(obj);
+        }
+      });
+
+      if (colliders.length > 0) {
+        // Cast ray downwards from slightly above player waist
+        const rayStart = new THREE.Vector3(x, y + 0.2, z);
+        const downRay = new THREE.Raycaster(rayStart, new THREE.Vector3(0, -1, 0), 0, 150);
+        const hits = downRay.intersectObjects(colliders, true);
+
+        for (let i = 0; i < hits.length; i++) {
+          const hitY = hits[i].point.y;
+          if (hitY <= currentFeetY + 0.65) {
+            if (highestGround === null || hitY > highestGround) {
+              highestGround = hitY;
+            }
+            break; // Closest hit is top surface
+          }
+        }
+      }
+
+      return highestGround;
     }
 
     function switchViewportTab(tab) {
@@ -2388,6 +2484,8 @@
         camera.position.copy(mainCameraObject.position);
         camera.quaternion.copy(mainCameraObject.quaternion);
         euler.setFromQuaternion(camera.quaternion);
+        playerVelocityY = 0;
+        isPlayerGrounded = false;
 
         // 4. Check if camera has movement controller attached
         const hasController = !!(mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
@@ -2610,12 +2708,16 @@
       if (currentViewMode === 'game') {
         const k = e.key.toLowerCase();
 
-        // Player WASD Walking
+        // Player WASD Walking & Space Jump
         if (k === 'w' || k === 'arrowup') moveKeys.w = true;
         if (k === 's' || k === 'arrowdown') moveKeys.s = true;
         if (k === 'a' || k === 'arrowleft') moveKeys.a = true;
         if (k === 'd' || k === 'arrowright') moveKeys.d = true;
         if (e.shiftKey) moveKeys.shift = true;
+        if (k === ' ' || e.code === 'Space') {
+          e.preventDefault();
+          moveKeys.space = true;
+        }
 
         // Player Interaction Key [E] (Opens Doors, Inspects Lore) or Lean Right
         if (k === 'e') {
@@ -2727,6 +2829,7 @@
       if (k === 's' || k === 'arrowdown') moveKeys.s = false;
       if (k === 'a' || k === 'arrowleft') moveKeys.a = false;
       if (k === 'd' || k === 'arrowright') moveKeys.d = false;
+      if (k === ' ' || e.code === 'Space') moveKeys.space = false;
       if (k === 'q') { moveKeys.q = false; if (window.NyxFPSKit) window.NyxFPSKit.state.targetLeanAngle = 0.0; }
       if (k === 'e') { moveKeys.e = false; if (window.NyxFPSKit) window.NyxFPSKit.state.targetLeanAngle = 0.0; }
       if (!e.shiftKey) moveKeys.shift = false;
@@ -2768,6 +2871,9 @@
       if (obj === mainCameraObject || (obj && obj.name === 'Main_Camera')) {
         if (obj.userData && obj.userData.hasFpsController) {
           comps.push({ id: 'fps_controller', name: 'First-Person Walk Controller', tag: 'Player', color: '#38bdf8' });
+        }
+        if (obj.userData && obj.userData.hasGravity !== false) {
+          comps.push({ id: 'player_gravity', name: 'Rigidbody Gravity (Fall on Play)', tag: 'Physics', color: '#0ea5e9' });
         }
         const viewmodel = camera.getObjectByName('FPS_Viewmodel_Gun');
         if (viewmodel) {
@@ -2861,6 +2967,13 @@
           if (chk) chk.checked = false;
           showEditorNotification(`Removed First-Person Controller from ${name}`);
         }
+      } else if (compType === 'player_gravity') {
+        if (mainCameraObject && mainCameraObject.userData) {
+          mainCameraObject.userData.hasGravity = false;
+          const chk = document.getElementById('chk-player-gravity');
+          if (chk) chk.checked = false;
+          showEditorNotification(`Disabled Rigidbody Gravity on ${name}`);
+        }
       } else if (compType === 'weapon') {
         const vm = camera.getObjectByName('FPS_Viewmodel_Gun');
         if (vm) {
@@ -2937,6 +3050,8 @@
         if (isCam) {
           const chk = document.getElementById('chk-fps-controller');
           if (chk) chk.checked = !!(mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
+          const chkGrav = document.getElementById('chk-player-gravity');
+          if (chkGrav) chkGrav.checked = (mainCameraObject.userData && mainCameraObject.userData.hasGravity !== false);
         }
       }
 
@@ -5369,12 +5484,14 @@
       if (window.NyxRPGKit) window.NyxRPGKit.update(delta);
       if (window.NyxOpenWorldAIKit) window.NyxOpenWorldAIKit.update(delta, camera.position);
 
-      // 2. GAME VIEW: FIRST-PERSON PLAYER SIMULATION WITH SOLID COLLISION
+      // 2. GAME VIEW: FIRST-PERSON PLAYER SIMULATION WITH SOLID COLLISION & UNITY-STYLE GRAVITY
       if (currentViewMode === 'game') {
         const hasController = !!(mainCameraObject && mainCameraObject.userData && mainCameraObject.userData.hasFpsController);
+        const hasGravity = (mainCameraObject && mainCameraObject.userData && mainCameraObject.userData.hasGravity !== false);
 
+        // A. Horizontal Movement (WASD with Solid Sliding Collision)
         if (hasController) {
-          const speed = 3.6;
+          const speed = (moveKeys.shift ? 6.2 : 3.6);
           const dir = new THREE.Vector3();
           if (moveKeys.w) dir.z -= 1;
           if (moveKeys.s) dir.z += 1;
@@ -5406,7 +5523,58 @@
               camera.position.z = nextPosZ.z;
             }
           }
-        } // else: Camera stays completely STILL (diam) as real game simulation!
+        }
+
+        // B. Unity-style Vertical Physics (Gravity & Ground Detection)
+        if (hasGravity) {
+          const groundY = getGroundHeightAt(camera.position.x, camera.position.y, camera.position.z);
+          const currentFeetY = camera.position.y - PLAYER_EYE_HEIGHT;
+
+          if (groundY !== null && currentFeetY <= groundY + 0.12 && playerVelocityY <= 0) {
+            // Standing securely on a solid collision surface!
+            isPlayerGrounded = true;
+            playerVelocityY = 0;
+            // Smoothly snap to exact floor height (allows climbing steps/slopes)
+            camera.position.y = groundY + PLAYER_EYE_HEIGHT;
+
+            // Spacebar Jump
+            if (hasController && moveKeys.space) {
+              playerVelocityY = PLAYER_JUMP_FORCE;
+              isPlayerGrounded = false;
+              if (window.NyxAudioSynth && window.NyxAudioSynth.playFootstep) {
+                window.NyxAudioSynth.playFootstep();
+              }
+            }
+          } else {
+            // Mid-Air: FALL WITH REALISTIC GRAVITY (Just like Unity!)
+            isPlayerGrounded = false;
+            playerVelocityY += PLAYER_GRAVITY * delta;
+            if (playerVelocityY < TERMINAL_FALL_SPEED) playerVelocityY = TERMINAL_FALL_SPEED;
+
+            const nextY = camera.position.y + (playerVelocityY * delta);
+            const nextFeetY = nextY - PLAYER_EYE_HEIGHT;
+
+            // Check if player landed on ground during this downward step
+            if (groundY !== null && playerVelocityY < 0 && nextFeetY <= groundY) {
+              camera.position.y = groundY + PLAYER_EYE_HEIGHT;
+              playerVelocityY = 0;
+              isPlayerGrounded = true;
+              if (window.NyxAudioSynth && window.NyxAudioSynth.playFootstep) {
+                window.NyxAudioSynth.playFootstep();
+              }
+            } else {
+              // No collision below -> keep falling freely into void!
+              camera.position.y = nextY;
+            }
+          }
+
+          // Void Safety Threshold: if player falls off the world into deep abyss
+          if (camera.position.y < -60) {
+            camera.position.copy(mainCameraObject.position);
+            playerVelocityY = 0;
+            showEditorNotification('Fell into the Void — Respawned at start');
+          }
+        }
 
         // Dynamic Raycasting for ALL interactable objects in the scene (Doors, Lore, Pickups)
         const interactables = [];
