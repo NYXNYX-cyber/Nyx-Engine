@@ -13,6 +13,8 @@ use axum::{
 };
 use db::Database;
 use engine_core::{
+    components::*,
+    generators::*,
     voxel::{VoxelGenerator, VoxelWorldParams},
     ClientMessage, Player, PlayerInput, ServerMessage, WorldState,
 };
@@ -146,6 +148,8 @@ async fn main() {
         // Voxel World Procedural Generation (Linux Multi-Core CPU Offload)
         .route("/api/world/voxel-chunk", get(api_generate_voxel_chunk))
         .route("/api/world/voxel-region", post(api_generate_voxel_region))
+        // 2D Dark Fantasy Platformer Procedural World (The Last Flame)
+        .route("/api/world/2d/stage", get(api_generate_2d_stage))
         // Real-time Engine WebSocket
         .route("/ws", get(ws_handler))
         // Static Web Game Engine Studio
@@ -581,4 +585,73 @@ async fn api_generate_voxel_region(
     .unwrap_or_default();
 
     (StatusCode::OK, Json(chunks))
+}
+
+#[derive(Deserialize)]
+pub struct Stage2DQuery {
+    pub chapter: Option<String>,
+    pub width: Option<usize>,
+    pub height: Option<usize>,
+    pub tile_size: Option<f32>,
+    pub seed: Option<u64>,
+}
+
+#[derive(Serialize)]
+pub struct Stage2DResponse {
+    pub chapter: Chapter,
+    pub tilemap: TileMap2D,
+    pub enemies: Vec<EnemyEntity>,
+    pub checkpoints: Vec<Checkpoint>,
+    pub braziers: Vec<EnvironmentalBrazier>,
+    pub pickups: Vec<EmberShardPickup>,
+    pub puzzles: Vec<FlamePuzzleObstacle>,
+}
+
+async fn api_generate_2d_stage(
+    Query(q): Query<Stage2DQuery>,
+) -> impl IntoResponse {
+    let seed = q.seed.unwrap_or_else(|| {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::from_secs(42))
+            .as_secs()
+    });
+
+    let chapter = match q.chapter.as_deref() {
+        Some("forgotten-village") | Some("chapter2") => Chapter::ForgottenVillage,
+        Some("beneath-the-earth") | Some("chapter3") => Chapter::BeneathTheEarth,
+        Some("last-horizon") | Some("chapter4") => Chapter::LastHorizon,
+        _ => Chapter::SilentForest,
+    };
+
+    let width = q.width.unwrap_or(120).clamp(40, 500);
+    let height = q.height.unwrap_or(24).clamp(16, 100);
+    let tile_size = q.tile_size.unwrap_or(32.0).clamp(16.0, 64.0);
+
+    let stage = tokio::task::spawn_blocking(move || {
+        let level_gen = PlatformerLevelGenerator::new(chapter, seed);
+        let map = level_gen.generate(width, height, tile_size);
+        let enemies = EncounterGenerator::populate_enemies(&map, chapter, seed);
+        let (checkpoints, braziers, pickups) = LightAndPickupGenerator::populate(&map, seed);
+
+        let mut puzzles = Vec::new();
+        // Generate a dark bramble gate in the middle
+        puzzles.push(FlamePuzzleObstacle::new_bramble(1, (width as f32 * tile_size) * 0.45, 4.0 * tile_size, 80.0));
+        // Generate a brazier gate near the end
+        puzzles.push(FlamePuzzleObstacle::new_brazier_gate(2, (width as f32 * tile_size) * 0.85, 4.0 * tile_size, 2));
+
+        Stage2DResponse {
+            chapter,
+            tilemap: map,
+            enemies,
+            checkpoints,
+            braziers,
+            pickups,
+            puzzles,
+        }
+    })
+    .await
+    .unwrap();
+
+    (StatusCode::OK, Json(stage))
 }
