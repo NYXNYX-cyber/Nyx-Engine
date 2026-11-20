@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MALAM JAGA TPU: SHIFT TERAKHIR (Indonesian Horror)</title>
+    <!-- Three.js with fallback -->
+    <script src="libs/three.min.js"></script>
+    <script>
+        if (typeof THREE === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+        }
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030504;
+            font-family: 'Courier New', Courier, monospace;
+            color: #d1d5db;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        /* CRT & Vignette Horror Overlay */
+        .vignette-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            background: radial-gradient(circle at center, transparent 40%, rgba(3, 5, 4, 0.75) 80%, rgba(0, 0, 0, 0.95) 100%);
+        }
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 6;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 6px 100%;
+            opacity: 0.8;
+        }
+
+        /* HUD OVERLAY */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            text-shadow: 0 0 8px rgba(0, 255, 128, 0.6);
+        }
+        .game-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #10b981;
+            letter-spacing: 2px;
+        }
+        .clock-display {
+            text-align: right;
+            font-size: 26px;
+            font-weight: 900;
+            color: #f59e0b;
+            letter-spacing: 3px;
+        }
+        .night-indicator {
+            font-size: 13px;
+            color: #9ca3af;
+            letter-spacing: 1px;
+        }
+
+        /* POWER & BATTERY STATUS */
+        .bottom-left-status {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(10, 15, 12, 0.7);
+            border: 1px solid #1f2937;
+            padding: 12px 16px;
+            border-radius: 4px;
+            width: 220px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .bar-container {
+            width: 90px;
+            height: 10px;
+            background: #1f2937;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+        .bar-fill.warning { background: #f59e0b; }
+        .bar-fill.danger { background: #ef4444; }
+
+        /* ACTION CONTROLS (BOTTOM) */
+        .controls-panel {
+            pointer-events: auto;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 14px;
+            z-index: 15;
+        }
+        .action-btn {
+            background: #111827;
+            color: #f3f4f6;
+            border: 2px solid #374151;
+            padding: 12px 18px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 120px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: all 0.15s ease;
+        }
+        .action-btn:hover {
+            background: #1f2937;
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .action-btn:active, .action-btn.active {
+            background: #064e3b;
+            border-color: #10b981;
+            color: #ffffff;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        }
+        .btn-shortcut {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+
+        /* CCTV TABLET SCREEN */
+        #cctv-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 4, 3, 0.95);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            padding: 16px;
+        }
+        .cctv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #064e3b;
+            padding-bottom: 8px;
+            color: #10b981;
+        }
+        .cctv-camera-view {
+            flex: 1;
+            position: relative;
+            margin: 12px 0;
+            border: 2px solid #1f2937;
+            background: #040806;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #cctv-feed-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .cctv-hud-text {
+            position: absolute;
+            top: 14px;
+            left: 16px;
+            color: #10b981;
+            font-size: 15px;
+            font-weight: bold;
+            text-shadow: 0 0 6px rgba(16, 185, 129, 0.8);
+        }
+        .cctv-rec-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .cctv-nav-panel {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            background: #0b130e;
+            padding: 12px;
+            border: 1px solid #1f2937;
+            border-radius: 4px;
+        }
+        .cam-btn {
+            background: #111827;
+            border: 1px solid #374151;
+            color: #9ca3af;
+            padding: 10px 4px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 3px;
+            text-align: center;
+        }
+        .cam-btn:hover {
+            border-color: #10b981;
+            color: #10b981;
+        }
+        .cam-btn.active {
+            background: #064e3b;
+            color: #f3f4f6;
+            border-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+        }
+
+        /* JUMPSCARE & GAME OVER OVERLAY */
+        #jumpscare-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            background: #000000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ef4444;
+        }
+        .jumpscare-face {
+            width: 380px;
+            height: 380px;
+            filter: contrast(250%) brightness(130%) drop-shadow(0 0 25px rgba(239, 68, 68, 0.9));
+            animation: shake 0.1s infinite alternate;
+        }
+        @keyframes shake {
+            0% { transform: scale(1) translate(-5px, 5px) rotate(-2deg); }
+            100% { transform: scale(1.1) translate(5px, -5px) rotate(2deg); }
+        }
+        .game-over-title {
+            font-size: 36px;
+            font-weight: 900;
+            margin-top: 24px;
+            letter-spacing: 4px;
+            text-shadow: 0 0 16px #ef4444;
+        }
+        .restart-btn {
+            margin-top: 24px;
+            background: #ef4444;
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 12px 32px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+        }
+
+        /* WIN 6 AM OVERLAY */
+        #win-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            background: radial-gradient(circle at center, #1e3a2f 0%, #030a06 100%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #10b981;
+            text-align: center;
+            padding: 24px;
+        }
+
+        /* RADIO NOTIFICATION TOAST */
+        #radio-toast {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(17, 24, 39, 0.9);
+            border: 1px solid #f59e0b;
+            color: #fbbf24;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            display: none;
+            z-index: 25;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+            max-width: 90%;
+            text-align: center;
+        }
+
+        /* START OVERLAY */
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #020403;
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+        }
+        .start-btn {
+            background: #10b981;
+            color: #030504;
+            font-family: inherit;
+            font-size: 18px;
+            font-weight: 900;
+            padding: 14px 42px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
+            margin-top: 30px;
+            transition: transform 0.15s ease;
+        }
+        .start-btn:hover {
+            transform: scale(1.05);
+            background: #34d399;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="vignette-overlay"></div>
+    <div class="scanlines"></div>
+
+    <!-- START SCREEN -->
+    <div id="start-overlay">
+        <h1 style="color: #ef4444; font-size: 38px; letter-spacing: 4px; margin-bottom: 8px; text-shadow: 0 0 15px rgba(239,68,68,0.7);">MALAM JAGA TPU</h1>
+        <h3 style="color: #10b981; font-size: 18px; letter-spacing: 2px; margin-bottom: 24px;">SHIFT TERAKHIR: 00:00 - 06:00</h3>
+        <div style="max-width: 540px; color: #9ca3af; font-size: 13px; line-height: 1.6; background: #08100b; padding: 20px; border: 1px solid #1f2937; border-radius: 4px; text-align: left;">
+            <p><strong>INSTRUKSI PENJAGA MALAM:</strong></p>
+            <p>1. Pantau area kuburan lewat <strong>CCTV (6 Kamera)</strong>. Waspadai pergerakan Pocong dan Kuntilanak.</p>
+            <p>2. Jika <strong>Pocong</strong> mendekat ke pintu pos, segera <strong>TUTUP PINTU</strong> atau nyalakan <strong>SENTER</strong> ke arahnya!</p>
+            <p>3. Jika <strong>Genderuwo</strong> mematikan listrik, segera putar tuas <strong>RESTART GENERATOR</strong> di dinding pos.</p>
+            <p>4. Jika <strong>Radio HT</strong> bersuara bisikan anak/wanita asing (Wewe Gombel), <strong>JANGAN BUKA PINTU</strong>!</p>
+            <p>5. Kelola <strong>Daya Listrik (Power)</strong> dengan bijak agar tidak mati lampu total sebelum jam 06.00 pagi!</p>
+        </div>
+        <button class="start-btn" id="btn-start-game">MULAI BERJAGA (START SHIFT)</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="top-bar">
+            <div>
+                <div class="game-title">/// POS RONDA TPU DESA SIKUBUR ///</div>
+                <div class="night-indicator">SHIFT MALAM KE-1 (NORMAL DIFFICULTY)</div>
+            </div>
+            <div>
+                <div class="clock-display" id="hud-clock">12:00 AM</div>
+                <div class="night-indicator" style="text-align: right;">TARGET: 06:00 AM</div>
+            </div>
+        </div>
+
+        <div id="radio-toast">📻 [RADIO HT]: "Pak... tolong bukain pintu pos..."</div>
+
+        <div class="bottom-left-status">
+            <div class="status-row">
+                <span style="color: #10b981;">⚡ DAYA LISTRIK:</span>
+                <span id="power-text" style="color: #10b981;">100%</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-fill" id="power-bar" style="width: 100%;"></div>
+            </div>
+            <div class="status-row" style="margin-top: 4px;">
+                <span style="color: #f59e0b;">🔦 SENTER:</span>
+                <span id="flash-text" style="color: #f59e0b;">100%</span>
+            </div>
+            <div class="bar-container">
+                <div class="bar-fill warning" id="flash-bar" style="width: 100%;"></div>
+            </div>
+            <div class="status-row" style="font-size: 11px; color: #6b7280; margin-top: 2px;">
+                <span>BEBAN KELISTRIKAN:</span>
+                <span id="usage-text" style="color: #e5e7eb;">SEDANG (1.0x)</span>
+            </div>
+        </div>
+
+        <!-- CONTROLS PANEL -->
+        <div class="controls-panel">
+            <button class="action-btn" id="btn-toggle-door">
+                <span>🚪 PINTU POS</span>
+                <span id="door-status-text" style="color: #10b981; font-size: 11px;">TERBUKA</span>
+                <span class="btn-shortcut">[Q / KLIK]</span>
+            </button>
+            <button class="action-btn" id="btn-toggle-flashlight">
+                <span>🔦 SENTER</span>
+                <span id="flash-status-text" style="color: #9ca3af; font-size: 11px;">MATI</span>
+                <span class="btn-shortcut">[F / SPASI]</span>
+            </button>
+            <button class="action-btn" id="btn-toggle-cctv">
+                <span>📺 MONITOR CCTV</span>
+                <span style="color: #60a5fa; font-size: 11px;">TABLET</span>
+                <span class="btn-shortcut">[E / TAB]</span>
+            </button>
+            <button class="action-btn" id="btn-generator-crank">
+                <span>⚙️ GENERATOR</span>
+                <span id="gen-status-text" style="color: #10b981; font-size: 11px;">AKTIF</span>
+                <span class="btn-shortcut">[R / RESTART]</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- CCTV FULLSCREEN TABLET -->
+    <div id="cctv-modal">
+        <div class="cctv-header">
+            <div>
+                <span class="cctv-rec-dot"></span>
+                <strong>SURVEILLANCE FEED - TPU SIKUBUR</strong>
+            </div>
+            <div style="font-size: 13px;">
+                <span id="cctv-power-status" style="margin-right: 16px;">⚡ POWER: 100%</span>
+                <button id="btn-close-cctv" style="background: #ef4444; color: white; border: none; padding: 4px 12px; cursor: pointer; font-family: inherit; font-weight: bold; border-radius: 3px;">TUTUP [ESC]</button>
+            </div>
+        </div>
+
+        <div class="cctv-camera-view">
+            <canvas id="cctv-feed-canvas" width="800" height="450"></canvas>
+            <div class="cctv-hud-text" id="cctv-cam-title">CAM 01: BLOK A - MAKAM BARU</div>
+            <div style="position: absolute; bottom: 12px; right: 16px; color: #10b981; font-size: 13px;" id="cctv-timestamp">2026-11-20 00:14:22</div>
+        </div>
+
+        <div class="cctv-nav-panel">
+            <button class="cam-btn active" data-cam="1">CAM 01<br><span style="font-size: 9px;">MAKAM BARU</span></button>
+            <button class="cam-btn" data-cam="2">CAM 02<br><span style="font-size: 9px;">MAKAM TUA</span></button>
+            <button class="cam-btn" data-cam="3">CAM 03<br><span style="font-size: 9px;">POHON BERINGIN</span></button>
+            <button class="cam-btn" data-cam="4">CAM 04<br><span style="font-size: 9px;">MAKAM KERAMAT</span></button>
+            <button class="cam-btn" data-cam="5">CAM 05<br><span style="font-size: 9px;">GUDANG KERANDA</span></button>
+            <button class="cam-btn" data-cam="6">CAM 06<br><span style="font-size: 9px;">DEPAN PINTU POS</span></button>
+        </div>
+    </div>
+
+    <!-- JUMPSCARE SCREEN -->
+    <div id="jumpscare-overlay">
+        <canvas id="jumpscare-canvas" class="jumpscare-face" width="380" height="380"></canvas>
+        <div class="game-over-title" id="jumpscare-title">KAMU TIDAK BERTAHAN...</div>
+        <div style="color: #9ca3af; font-size: 14px; margin-top: 8px;" id="jumpscare-desc">Pocong telah menerobos pos jaga yang tidak terkunci.</div>
+        <button class="restart-btn" id="btn-restart-game">COBA LAGI SHIFT MALAM</button>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div id="win-overlay">
+        <h1 style="font-size: 44px; color: #fbbf24; letter-spacing: 4px; text-shadow: 0 0 20px #fbbf24;">06:00 AM</h1>
+        <h2 style="font-size: 24px; color: #10b981; margin-top: 10px; letter-spacing: 2px;">SHIFT MALAM SELESAI! KAMU SELAMAT!</h2>
+        <p style="max-width: 500px; color: #d1d5db; font-size: 14px; line-height: 1.6; margin-top: 16px;">
+            Matahari terbit di ufuk timur pemakaman desa. Makhluk-makhluk kegelapan kembali ke persemayamannya. Kamu berhasil menjaga TPU hingga fajar menyingsing.
+        </p>
+        <button class="start-btn" id="btn-win-replay" style="margin-top: 24px;">MAINKAN MALAM BERIKUTNYA</button>
+    </div>
+
+    <!-- AUDIO SYNTHESIZER (WEB AUDIO API) -->
+    <script>
+        class HorrorAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playCricketsWind() {
+                if (!this.ctx) return;
+                // Ambience white noise filtered for distant wind
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.04;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                noise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, this.ctx.currentTime);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+            playSwitchClick() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+            playHeavyDoorThud() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.35);
+                gain.gain.setValueAtTime(0.8, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.35);
+            }
+            playRadioStatic(duration = 2.0) {
+                if (!this.ctx) return;
+                const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.15;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1800, this.ctx.currentTime);
+                filter.Q.setValueAtTime(2.0, this.ctx.currentTime);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+            playKuntilanakLaugh() {
+                if (!this.ctx) return;
+                // High pitch spooky undulating laughter
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(750, now);
+                // undulating vibrato
+                for (let i = 0; i < 8; i++) {
+                    osc.frequency.setValueAtTime(800 + (i % 2) * 120, now + i * 0.22);
+                }
+                osc.frequency.exponentialRampToValueAtTime(350, now + 2.2);
+
+                gain.gain.setValueAtTime(0.01, now);
+                gain.gain.linearRampToValueAtTime(0.35, now + 0.4);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 2.4);
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1400, now);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 2.4);
+            }
+            playJumpscareScream() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                // Harsh dual dissonance
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc2.type = 'square';
+                osc1.frequency.setValueAtTime(180, now);
+                osc1.frequency.linearRampToValueAtTime(950, now + 0.15);
+                osc2.frequency.setValueAtTime(210, now);
+                osc2.frequency.linearRampToValueAtTime(1100, now + 0.15);
+
+                gain.gain.setValueAtTime(0.9, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 1.2);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc1.start();
+                osc2.start();
+                osc1.stop(now + 1.2);
+                osc2.stop(now + 1.2);
+            }
+        }
+        const sfx = new HorrorAudioEngine();
+    </script>
+
+    <!-- MAIN 3D THREE.JS SIMULATION & GAMEPLAY LOGIC -->
+    <script>
+        // GAME STATE
+        const state = {
+            isPlaying: false,
+            timeHours: 0, // 0 = 12 AM, 1 = 1 AM, ..., 6 = 6 AM
+            timeMinutes: 0,
+            power: 100.0,
+            flashlightBattery: 100.0,
+            isDoorClosed: false,
+            isFlashlightOn: false,
+            isCctvOpen: false,
+            currentCam: 1,
+            isGeneratorOk: true,
+            generatorCooldown: 0,
+
+            // Ghost AI Locations (Cam 1-6 or Pos)
+            // Pocong sequence: CAM 1 -> CAM 2 -> CAM 6 -> DOOR
+            pocongStage: 1, 
+            pocongTimer: 0,
+            pocongAtDoorTimer: 0,
+
+            // Kuntilanak: CAM 3 (Beringin) -> Pos Roof
+            kuntilanakStage: 0,
+            kuntilanakTimer: 0,
+
+            // Genderuwo: CAM 4 (Keramat) -> Messes with power
+            genderuwoTimer: 0,
+
+            // Wewe Gombel: Radio mimic
+            weweActive: false,
+            weweTimer: 0
+        };
+
+        // THREE.JS SETUP
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030504, 0.045);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 150);
+        camera.position.set(0, 1.6, 0); // Eye level in pos ronda
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // LIGHTS
+        const ambientLight = new THREE.AmbientLight(0x060c09, 0.4);
+        scene.add(ambientLight);
+
+        // Room bulb hanging from ceiling
+        const bulbLight = new THREE.PointLight(0xfef08a, 1.8, 8);
+        bulbLight.position.set(0, 2.4, 0);
+        bulbLight.castShadow = true;
+        scene.add(bulbLight);
+
+        // Flashlight spotlight attached to camera
+        const flashLight = new THREE.SpotLight(0xffffff, 0, 35, Math.PI / 6, 0.35, 1.2);
+        flashLight.position.set(0, 1.4, 0);
+        flashLight.castShadow = true;
+        scene.add(flashLight);
+        scene.add(flashLight.target);
+
+        // 3D POS RONDA (GUARD POST) BUILD
+        const posGroup = new THREE.Group();
+
+        // Floor (dirty wooden planks)
+        const floorGeo = new THREE.PlaneGeometry(5, 5);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.9 });
+        const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+        floorMesh.rotation.x = -Math.PI / 2;
+        floorMesh.receiveShadow = true;
+        posGroup.add(floorMesh);
+
+        // Ceiling
+        const ceilingMesh = new THREE.Mesh(floorGeo, floorMat);
+        ceilingMesh.position.y = 2.6;
+        ceilingMesh.rotation.x = Math.PI / 2;
+        posGroup.add(ceilingMesh);
+
+        // Back Wall
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1f2421, roughness: 0.85 });
+        const backWall = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.6), wallMat);
+        backWall.position.set(0, 1.3, 2.5);
+        backWall.rotation.y = Math.PI;
+        posGroup.add(backWall);
+
+        // Left Wall
+        const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.6), wallMat);
+        leftWall.position.set(-2.5, 1.3, 0);
+        leftWall.rotation.y = Math.PI / 2;
+        posGroup.add(leftWall);
+
+        // Right Wall with Generator switch
+        const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.6), wallMat);
+        rightWall.position.set(2.5, 1.3, 0);
+        rightWall.rotation.y = -Math.PI / 2;
+        posGroup.add(rightWall);
+
+        // Generator Box on Right Wall
+        const genBox = new THREE.Mesh(
+            new THREE.BoxGeometry(0.2, 0.6, 0.4),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 })
+        );
+        genBox.position.set(2.38, 1.4, 0.5);
+        posGroup.add(genBox);
+
+        // Front Wall with Window opening and Door opening
+        const frontWallLeft = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 0.1), wallMat);
+        frontWallLeft.position.set(-1.9, 1.3, -2.5);
+        posGroup.add(frontWallLeft);
+
+        const frontWallRight = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 0.1), wallMat);
+        frontWallRight.position.set(1.9, 1.3, -2.5);
+        posGroup.add(frontWallRight);
+
+        // Wooden Door (Sliding/Swinging)
+        const doorGeo = new THREE.BoxGeometry(1.2, 2.4, 0.08);
+        const doorMat = new THREE.MeshStandardMaterial({ color: 0x3f2e1e, roughness: 0.9 });
+        const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+        doorMesh.position.set(-1.0, 1.2, -2.46);
+        doorMesh.castShadow = true;
+        posGroup.add(doorMesh);
+
+        // Guard Desk in front of window
+        const deskGeo = new THREE.BoxGeometry(2.4, 0.9, 1.1);
+        const deskMat = new THREE.MeshStandardMaterial({ color: 0x2d2116, roughness: 0.8 });
+        const deskMesh = new THREE.Mesh(deskGeo, deskMat);
+        deskMesh.position.set(0.6, 0.45, -1.8);
+        deskMesh.castShadow = true;
+        deskMesh.receiveShadow = true;
+        posGroup.add(deskMesh);
+
+        // CRT Monitor on desk
+        const monitorGeo = new THREE.BoxGeometry(0.5, 0.45, 0.4);
+        const monitorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+        const monitorMesh = new THREE.Mesh(monitorGeo, monitorMat);
+        monitorMesh.position.set(0.6, 1.12, -1.75);
+        posGroup.add(monitorMesh);
+
+        // Monitor glowing screen face
+        const screenGeo = new THREE.PlaneGeometry(0.42, 0.35);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+        const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+        screenMesh.position.set(0.6, 1.12, -1.54);
+        posGroup.add(screenMesh);
+
+        // Radio HT on desk
+        const htGeo = new THREE.BoxGeometry(0.08, 0.22, 0.06);
+        const htMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.6 });
+        const htMesh = new THREE.Mesh(htGeo, htMat);
+        htMesh.position.set(1.2, 0.98, -1.6);
+        posGroup.add(htMesh);
+
+        scene.add(posGroup);
+
+        // OUTDOOR GRAVEYARD (TPU ENVIRONMENT)
+        const graveyardGroup = new THREE.Group();
+
+        // Uneven Ground terrain
+        const groundGeo = new THREE.PlaneGeometry(120, 120, 32, 32);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x090d0b, roughness: 0.95 });
+        const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+        groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.position.y = -0.05;
+        groundMesh.receiveShadow = true;
+        graveyardGroup.add(groundMesh);
+
+        // Procedural Gravestones (Nisan & Gundukan Tanah)
+        const graveGeo = new THREE.BoxGeometry(0.35, 0.7, 0.12);
+        const graveMoundGeo = new THREE.CylinderGeometry(0.45, 0.55, 1.8, 8);
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x1c1917, roughness: 0.95 });
+
+        for (let i = 0; i < 70; i++) {
+            const gx = (Math.random() - 0.5) * 80;
+            const gz = -6 - Math.random() * 60; // In front and spreading out
+            if (Math.abs(gx) < 3 && gz > -8) continue; // Keep path clear
+
+            const nisan = new THREE.Mesh(graveGeo, stoneMat);
+            nisan.position.set(gx, 0.35, gz);
+            nisan.rotation.y = (Math.random() - 0.5) * 0.4;
+            nisan.castShadow = true;
+            graveyardGroup.add(nisan);
+
+            const mound = new THREE.Mesh(graveMoundGeo, dirtMat);
+            mound.rotation.x = Math.PI / 2;
+            mound.rotation.z = nisan.rotation.y;
+            mound.position.set(gx, 0.1, gz - 0.7);
+            graveyardGroup.add(mound);
+        }
+
+        // Large Beringin Tree (CAM 03 zone)
+        const beringinTrunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.6, 2.2, 9, 12),
+            new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.95 })
+        );
+        beringinTrunk.position.set(-22, 4.5, -28);
+        graveyardGroup.add(beringinTrunk);
+
+        const beringinCanopy = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(6.5),
+            new THREE.MeshStandardMaterial({ color: 0x052e16, roughness: 0.9 })
+        );
+        beringinCanopy.position.set(-22, 9.5, -28);
+        graveyardGroup.add(beringinCanopy);
+
+        // Kamboja Trees with twisted branches
+        for (let k = 0; k < 6; k++) {
+            const kx = 12 + (k % 3) * 8 * (k % 2 === 0 ? 1 : -1);
+            const kz = -15 - k * 7;
+            const kTrunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.25, 0.4, 4.5, 6),
+                new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.9 })
+            );
+            kTrunk.position.set(kx, 2.2, kz);
+            kTrunk.rotation.z = (Math.random() - 0.5) * 0.2;
+            graveyardGroup.add(kTrunk);
+
+            const kLeaves = new THREE.Mesh(
+                new THREE.SphereGeometry(1.5, 6, 6),
+                new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.9 })
+            );
+            kLeaves.position.set(kx, 4.5, kz);
+            graveyardGroup.add(kLeaves);
+        }
+
+        // 3D GHOST MODELS
+
+        // 1. POCONG 3D MODEL
+        const pocongGroup = new THREE.Group();
+        // Wrapped body shroud
+        const shroudBody = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.28, 0.24, 1.6, 10),
+            new THREE.MeshStandardMaterial({ color: 0xd4d4d8, roughness: 0.95 })
+        );
+        shroudBody.position.y = 0.8;
+        shroudBody.castShadow = true;
+        pocongGroup.add(shroudBody);
+
+        // Head and top tie
+        const pocongHead = new THREE.Mesh(
+            new THREE.SphereGeometry(0.22, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0xa1a1aa, roughness: 0.95 })
+        );
+        pocongHead.position.y = 1.68;
+        pocongGroup.add(pocongHead);
+
+        const topTie = new THREE.Mesh(
+            new THREE.ConeGeometry(0.12, 0.25, 6),
+            new THREE.MeshStandardMaterial({ color: 0x71717a, roughness: 0.95 })
+        );
+        topTie.position.y = 1.95;
+        pocongGroup.add(topTie);
+
+        // Hollow blackened eyes
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04), eyeMat);
+        eyeL.position.set(-0.07, 1.72, 0.2);
+        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04), eyeMat);
+        eyeR.position.set(0.07, 1.72, 0.2);
+        pocongGroup.add(eyeL);
+        pocongGroup.add(eyeR);
+
+        pocongGroup.position.set(0, -10, 0); // hidden initially
+        graveyardGroup.add(pocongGroup);
+
+        // 2. KUNTILANAK 3D MODEL
+        const kuntilanakGroup = new THREE.Group();
+        const dress = new THREE.Mesh(
+            new THREE.ConeGeometry(0.5, 1.8, 10),
+            new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.8 })
+        );
+        dress.position.y = 0.9;
+        kuntilanakGroup.add(dress);
+
+        // Long messy black hair
+        const hairMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.95 });
+        const hair = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.38, 1.3, 8), hairMat);
+        hair.position.y = 1.45;
+        kuntilanakGroup.add(hair);
+
+        kuntilanakGroup.position.set(-22, 4.0, -26); // At beringin
+        kuntilanakGroup.visible = false;
+        graveyardGroup.add(kuntilanakGroup);
+
+        scene.add(graveyardGroup);
+
+        // MOUSE CAMERA LOOK
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotY = 0;
+        let targetRotX = 0;
+        let isMouseDown = false;
+        let prevMouseX = 0;
+        let prevMouseY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            if (!state.isPlaying || state.isCctvOpen) return;
+            const normX = (e.clientX / window.innerWidth) * 2 - 1;
+            const normY = (e.clientY / window.innerHeight) * 2 - 1;
+            targetRotY = -normX * 1.1; // Pan ~65 deg left-right
+            targetRotX = -normY * 0.45; // Tilt up-down
+        });
+
+        // Touch support for mobile look
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isMouseDown = true;
+                prevMouseX = e.touches[0].clientX;
+                prevMouseY = e.touches[0].clientY;
+            }
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (!isMouseDown || !state.isPlaying || state.isCctvOpen) return;
+            const dx = e.touches[0].clientX - prevMouseX;
+            const dy = e.touches[0].clientY - prevMouseY;
+            targetRotY += dx * 0.003;
+            targetRotX += dy * 0.002;
+            targetRotY = Math.max(-1.3, Math.min(1.3, targetRotY));
+            targetRotX = Math.max(-0.5, Math.min(0.5, targetRotX));
+            prevMouseX = e.touches[0].clientX;
+            prevMouseY = e.touches[0].clientY;
+        });
+        window.addEventListener('touchend', () => isMouseDown = false);
+
+        // CCTV PROCEDURAL CANVAS RENDERER
+        const cctvCanvas = document.getElementById('cctv-feed-canvas');
+        const cctvCtx = cctvCanvas.getContext('2d');
+
+        function renderCctvFeed() {
+            if (!state.isCctvOpen) return;
+            const w = cctvCanvas.width;
+            const h = cctvCanvas.height;
+
+            // Clear black
+            cctvCtx.fillStyle = '#050a07';
+            cctvCtx.fillRect(0, 0, w, h);
+
+            // Night vision green tint
+            cctvCtx.fillStyle = '#0a1f14';
+            cctvCtx.fillRect(0, 0, w, h);
+
+            // Render camera perspective sketches
+            cctvCtx.strokeStyle = '#10b981';
+            cctvCtx.lineWidth = 2;
+
+            if (state.currentCam === 1) {
+                // CAM 01: Makam Baru
+                cctvCtx.fillStyle = '#0d281a';
+                cctvCtx.fillRect(100, 240, 260, 100);
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[GUNDUKAN TANAH BARU - BLOK A]', 120, 230);
+                // Draw headstone
+                cctvCtx.strokeRect(200, 170, 50, 70);
+
+                if (state.pocongStage === 1) {
+                    drawCctvPocong(215, 140, 1.2);
+                }
+            } else if (state.currentCam === 2) {
+                // CAM 02: Makam Tua
+                cctvCtx.strokeRect(120, 190, 40, 60);
+                cctvCtx.strokeRect(280, 210, 45, 65);
+                cctvCtx.strokeRect(480, 180, 50, 80);
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[DERETAN NISAN BATU TUA - BLOK B]', 140, 150);
+
+                if (state.pocongStage === 2) {
+                    drawCctvPocong(300, 170, 1.3);
+                }
+            } else if (state.currentCam === 3) {
+                // CAM 03: Pohon Beringin
+                cctvCtx.fillStyle = '#061a10';
+                cctvCtx.beginPath();
+                cctvCtx.arc(400, 160, 140, 0, Math.PI * 2);
+                cctvCtx.fill();
+                cctvCtx.stroke();
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[BERINGIN KERAMAT - BLOK C]', 300, 50);
+
+                if (state.kuntilanakStage >= 1) {
+                    drawCctvKuntilanak(390, 140);
+                }
+            } else if (state.currentCam === 4) {
+                // CAM 04: Makam Keramat (Genderuwo)
+                cctvCtx.strokeRect(340, 200, 120, 70);
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[MAKAM TANPA NAMA - BLOK D]', 320, 180);
+
+                if (!state.isGeneratorOk || Math.random() < 0.25) {
+                    // Silhouette of Genderuwo
+                    cctvCtx.fillStyle = '#000000';
+                    cctvCtx.fillRect(360, 100, 80, 120);
+                    // Glowing red eyes
+                    cctvCtx.fillStyle = '#ef4444';
+                    cctvCtx.fillRect(380, 120, 8, 8);
+                    cctvCtx.fillRect(410, 120, 8, 8);
+                }
+            } else if (state.currentCam === 5) {
+                // CAM 05: Gudang Keranda
+                cctvCtx.strokeRect(200, 120, 400, 220);
+                cctvCtx.strokeRect(260, 220, 280, 60);
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[KERANDA MAYAT DESA - GUDANG]', 280, 255);
+            } else if (state.currentCam === 6) {
+                // CAM 06: Depan Pintu Pos Jaga
+                cctvCtx.strokeRect(300, 100, 200, 280);
+                cctvCtx.fillStyle = '#10b981';
+                cctvCtx.fillText('[JALUR MASUK POS RONDA]', 320, 80);
+
+                if (state.pocongStage === 3) {
+                    drawCctvPocong(380, 190, 2.0); // Close up!
+                }
+            }
+
+            // CRT Scanlines & noise on canvas
+            for (let y = 0; y < h; y += 4) {
+                cctvCtx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                cctvCtx.fillRect(0, y, w, 2);
+            }
+            // Noise grain
+            for (let i = 0; i < 600; i++) {
+                const rx = Math.random() * w;
+                const ry = Math.random() * h;
+                cctvCtx.fillStyle = Math.random() < 0.5 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)';
+                cctvCtx.fillRect(rx, ry, 2, 2);
+            }
+        }
+
+        function drawCctvPocong(x, y, scale = 1.0) {
+            cctvCtx.fillStyle = '#e2e8f0';
+            cctvCtx.fillRect(x - 12 * scale, y, 24 * scale, 65 * scale);
+            // head tie
+            cctvCtx.beginPath();
+            cctvCtx.arc(x, y - 8 * scale, 12 * scale, 0, Math.PI * 2);
+            cctvCtx.fill();
+            // hollow eyes
+            cctvCtx.fillStyle = '#000000';
+            cctvCtx.fillRect(x - 5 * scale, y - 10 * scale, 3 * scale, 4 * scale);
+            cctvCtx.fillRect(x + 2 * scale, y - 10 * scale, 3 * scale, 4 * scale);
+        }
+
+        function drawCctvKuntilanak(x, y) {
+            cctvCtx.fillStyle = '#f8fafc';
+            cctvCtx.beginPath();
+            cctvCtx.moveTo(x, y);
+            cctvCtx.lineTo(x - 20, y + 70);
+            cctvCtx.lineTo(x + 20, y + 70);
+            cctvCtx.fill();
+            // black hair covering
+            cctvCtx.fillStyle = '#000000';
+            cctvCtx.fillRect(x - 14, y - 15, 28, 45);
+        }
+
+        // DRAW 2D PROCEDURAL JUMPSCARE FACE
+        function drawJumpscareFace(canvas, ghostType) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (ghostType === 'pocong') {
+                // Shroud head
+                ctx.fillStyle = '#d4d4d8';
+                ctx.beginPath();
+                ctx.arc(190, 190, 130, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Top knotted tie
+                ctx.fillStyle = '#71717a';
+                ctx.fillRect(170, 20, 40, 50);
+
+                // Rotting face flesh
+                ctx.fillStyle = '#1c1917';
+                ctx.fillRect(110, 130, 160, 110);
+
+                // Bloodshot / hollow eyes
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(145, 175, 24, 0, Math.PI * 2);
+                ctx.arc(235, 175, 24, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(145, 175, 12, 0, Math.PI * 2);
+                ctx.arc(235, 175, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Gaping mouth
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(150, 225, 80, 35);
+            } else if (ghostType === 'kuntilanak') {
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath();
+                ctx.arc(190, 190, 120, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Creepy red eyes peeking through hair
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(140, 170, 20, 10);
+                ctx.fillRect(220, 170, 20, 10);
+
+                // Long dripping hair
+                ctx.fillStyle = '#000000';
+                for (let i = 0; i < 40; i++) {
+                    ctx.fillRect(70 + i * 6, 60, 5, 280 + Math.sin(i) * 30);
+                }
+            } else {
+                // Genderuwo
+                ctx.fillStyle = '#09090b';
+                ctx.fillRect(40, 40, 300, 300);
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(130, 160, 30, 0, Math.PI * 2);
+                ctx.arc(250, 160, 30, 0, Math.PI * 2);
+                ctx.fill();
+                // Sharp fangs
+                ctx.fillStyle = '#fef08a';
+                ctx.fillRect(150, 240, 15, 40);
+                ctx.fillRect(215, 240, 15, 40);
+            }
+        }
+
+        // TRIGGER JUMPSCARE & GAME OVER
+        function triggerJumpscare(ghostType, title, desc) {
+            state.isPlaying = false;
+            sfx.playJumpscareScream();
+            const overlay = document.getElementById('jumpscare-overlay');
+            const jCanvas = document.getElementById('jumpscare-canvas');
+            drawJumpscareFace(jCanvas, ghostType);
+            document.getElementById('jumpscare-title').innerText = title;
+            document.getElementById('jumpscare-desc').innerText = desc;
+            overlay.style.display = 'flex';
+        }
+
+        // TRIGGER WIN 6:00 AM
+        function triggerWin() {
+            state.isPlaying = false;
+            document.getElementById('win-overlay').style.display = 'flex';
+        }
+
+        // INTERACTION CONTROLS
+        const btnDoor = document.getElementById('btn-toggle-door');
+        const doorText = document.getElementById('door-status-text');
+        const btnFlash = document.getElementById('btn-toggle-flashlight');
+        const flashText = document.getElementById('flash-status-text');
+        const btnCctv = document.getElementById('btn-toggle-cctv');
+        const cctvModal = document.getElementById('cctv-modal');
+        const btnCloseCctv = document.getElementById('btn-close-cctv');
+        const btnGen = document.getElementById('btn-generator-crank');
+        const genText = document.getElementById('gen-status-text');
+
+        function toggleDoor() {
+            if (!state.isPlaying || state.power <= 0) return;
+            state.isDoorClosed = !state.isDoorClosed;
+            sfx.playHeavyDoorThud();
+            if (state.isDoorClosed) {
+                doorMesh.position.x = 0.0; // covers opening
+                doorText.innerText = 'TERKUNCI';
+                doorText.style.color = '#ef4444';
+                btnDoor.classList.add('active');
+            } else {
+                doorMesh.position.x = -1.0; // slides open
+                doorText.innerText = 'TERBUKA';
+                doorText.style.color = '#10b981';
+                btnDoor.classList.remove('active');
+            }
+        }
+
+        function toggleFlashlight() {
+            if (!state.isPlaying || state.flashlightBattery <= 0) return;
+            state.isFlashlightOn = !state.isFlashlightOn;
+            sfx.playSwitchClick();
+            if (state.isFlashlightOn) {
+                flashLight.intensity = 3.8;
+                flashText.innerText = 'MENYALA';
+                flashText.style.color = '#f59e0b';
+                btnFlash.classList.add('active');
+            } else {
+                flashLight.intensity = 0;
+                flashText.innerText = 'MATI';
+                flashText.style.color = '#9ca3af';
+                btnFlash.classList.remove('active');
+            }
+        }
+
+        function toggleCctv() {
+            if (!state.isPlaying || state.power <= 0) return;
+            state.isCctvOpen = !state.isCctvOpen;
+            sfx.playSwitchClick();
+            cctvModal.style.display = state.isCctvOpen ? 'flex' : 'none';
+        }
+
+        function restartGenerator() {
+            if (!state.isPlaying) return;
+            sfx.playSwitchClick();
+            state.isGeneratorOk = true;
+            genText.innerText = 'AKTIF';
+            genText.style.color = '#10b981';
+            bulbLight.color.setHex(0xfef08a);
+            bulbLight.intensity = 1.8;
+            btnGen.classList.remove('active');
+        }
+
+        btnDoor.addEventListener('click', toggleDoor);
+        btnFlash.addEventListener('click', toggleFlashlight);
+        btnCctv.addEventListener('click', toggleCctv);
+        btnCloseCctv.addEventListener('click', toggleCctv);
+        btnGen.addEventListener('click', restartGenerator);
+
+        // KEYBOARD SHORTCUTS
+        window.addEventListener('keydown', (e) => {
+            if (!state.isPlaying) return;
+            if (e.key === 'q' || e.key === 'Q') toggleDoor();
+            if (e.key === 'f' || e.key === 'F' || e.key === ' ') {
+                e.preventDefault();
+                toggleFlashlight();
+            }
+            if (e.key === 'e' || e.key === 'E' || e.key === 'Tab') {
+                e.preventDefault();
+                toggleCctv();
+            }
+            if (e.key === 'Escape' && state.isCctvOpen) toggleCctv();
+            if (e.key === 'r' || e.key === 'R') restartGenerator();
+        });
+
+        // CCTV CAM SELECTORS
+        const camBtns = document.querySelectorAll('.cam-btn');
+        const camTitle = document.getElementById('cctv-cam-title');
+        const camNames = {
+            1: "CAM 01: BLOK A - MAKAM BARU",
+            2: "CAM 02: BLOK B - MAKAM TUA",
+            3: "CAM 03: BLOK C - POHON BERINGIN",
+            4: "CAM 04: BLOK D - MAKAM KERAMAT",
+            5: "CAM 05: BLOK F - GUDANG KERANDA",
+            6: "CAM 06: DEPAN PINTU POS RONDA"
+        };
+        camBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                sfx.playSwitchClick();
+                camBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.currentCam = parseInt(btn.dataset.cam);
+                camTitle.innerText = camNames[state.currentCam];
+            });
+        });
+
+        // START & RESTART BUTTONS
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            sfx.init();
+            sfx.playCricketsWind();
+            document.getElementById('start-overlay').style.display = 'none';
+            state.isPlaying = true;
+        });
+        document.getElementById('btn-restart-game').addEventListener('click', () => {
+            window.location.reload();
+        });
+        document.getElementById('btn-win-replay').addEventListener('click', () => {
+            window.location.reload();
+        });
+
+        // GAME TICK & SIMULATION LOOP
+        let lastTime = performance.now();
+        let secondAccumulator = 0;
+
+        function gameUpdate(dt) {
+            if (!state.isPlaying) return;
+
+            // Clock progression (6 real-world seconds = 10 game minutes)
+            secondAccumulator += dt;
+            if (secondAccumulator >= 6.0) {
+                secondAccumulator = 0;
+                state.timeMinutes += 10;
+                if (state.timeMinutes >= 60) {
+                    state.timeMinutes = 0;
+                    state.timeHours += 1;
+                }
+                const hrDisplay = state.timeHours === 0 ? "12" : "0" + state.timeHours;
+                const minDisplay = state.timeMinutes === 0 ? "00" : state.timeMinutes;
+                document.getElementById('hud-clock').innerText = `${hrDisplay}:${minDisplay} AM`;
+
+                if (state.timeHours >= 6) {
+                    triggerWin();
+                    return;
+                }
+            }
+
+            // POWER DRAIN CALCULATION
+            let powerDrain = 0.08 * dt; // Base idle drain
+            if (state.isDoorClosed) powerDrain += 0.22 * dt;
+            if (state.isFlashlightOn) powerDrain += 0.15 * dt;
+            if (state.isCctvOpen) powerDrain += 0.18 * dt;
+            if (!state.isGeneratorOk) powerDrain += 0.35 * dt; // Generator fault drains fast
+
+            state.power = Math.max(0, state.power - powerDrain);
+            document.getElementById('power-text').innerText = `${Math.floor(state.power)}%`;
+            document.getElementById('cctv-power-status').innerText = `⚡ POWER: ${Math.floor(state.power)}%`;
+            const pBar = document.getElementById('power-bar');
+            pBar.style.width = `${state.power}%`;
+            if (state.power < 20) pBar.className = 'bar-fill danger';
+            else if (state.power < 50) pBar.className = 'bar-fill warning';
+
+            // Flashlight Battery Drain
+            if (state.isFlashlightOn) {
+                state.flashlightBattery = Math.max(0, state.flashlightBattery - 0.25 * dt);
+                document.getElementById('flash-text').innerText = `${Math.floor(state.flashlightBattery)}%`;
+                document.getElementById('flash-bar').style.width = `${state.flashlightBattery}%`;
+                if (state.flashlightBattery <= 0) toggleFlashlight();
+            }
+
+            // Power Outage (Blackout)
+            if (state.power <= 0) {
+                bulbLight.intensity = 0;
+                if (state.isDoorClosed) toggleDoor(); // Doors fail open!
+                if (state.isCctvOpen) toggleCctv();
+                triggerJumpscare('pocong', 'MATI LISTRIK TOTAL...', 'Listrik pos ronda padam sepenuhnya. Kegelapan TPU menelanmu.');
+                return;
+            }
+
+            // GHOST AI PROGRESSION
+
+            // 1. POCONG AI
+            state.pocongTimer += dt;
+            if (state.pocongTimer > 12.0) {
+                state.pocongTimer = 0;
+                // Move forward with 65% probability
+                if (Math.random() < 0.65) {
+                    state.pocongStage = Math.min(4, state.pocongStage + 1);
+                }
+            }
+
+            // Update 3D Pocong model position
+            if (state.pocongStage === 1) {
+                pocongGroup.position.set(-2, 0, -18); // Far makam baru
+                pocongGroup.visible = true;
+            } else if (state.pocongStage === 2) {
+                pocongGroup.position.set(3, 0, -10); // Mid makam tua
+                pocongGroup.visible = true;
+            } else if (state.pocongStage === 3) {
+                pocongGroup.position.set(-0.8, 0, -3.8); // Right in front of pos door/window!
+                pocongGroup.visible = true;
+
+                // Check if door is open or closed!
+                if (!state.isDoorClosed) {
+                    state.pocongAtDoorTimer += dt;
+                    // Flashlight repels Pocong!
+                    if (state.isFlashlightOn && camera.rotation.y > -0.6 && camera.rotation.y < 0.6) {
+                        state.pocongStage = 1; // Scare him back to Cam 1
+                        state.pocongAtDoorTimer = 0;
+                        sfx.playHeavyDoorThud();
+                    } else if (state.pocongAtDoorTimer > 5.5) {
+                        triggerJumpscare('pocong', 'TEROR POCONG!', 'Pocong melompat masuk ke dalam pos ronda saat pintu terbuka!');
+                        return;
+                    }
+                } else {
+                    // Door is locked! Pocong knocks and retreats
+                    state.pocongAtDoorTimer = 0;
+                    if (Math.random() < 0.05) {
+                        sfx.playHeavyDoorThud();
+                        state.pocongStage = 1; // Returned to graveyard!
+                    }
+                }
+            }
+
+            // 2. KUNTILANAK AI
+            state.kuntilanakTimer += dt;
+            if (state.kuntilanakTimer > 25.0) {
+                state.kuntilanakTimer = 0;
+                state.kuntilanakStage = (state.kuntilanakStage === 0) ? 1 : 0;
+                kuntilanakGroup.visible = (state.kuntilanakStage === 1);
+                if (state.kuntilanakStage === 1) {
+                    sfx.playKuntilanakLaugh();
+                }
+            }
+
+            // 3. GENDERUWO AI (Generator fault event)
+            state.genderuwoTimer += dt;
+            if (state.genderuwoTimer > 45.0) {
+                state.genderuwoTimer = 0;
+                if (Math.random() < 0.5 && state.isGeneratorOk) {
+                    state.isGeneratorOk = false;
+                    genText.innerText = 'TRIP / OVERLOAD';
+                    genText.style.color = '#ef4444';
+                    btnGen.classList.add('active');
+                    bulbLight.color.setHex(0xef4444);
+                    bulbLight.intensity = 0.5;
+                    sfx.playRadioStatic(1.5);
+                }
+            }
+
+            // 4. WEWE GOMBEL RADIO MIMIC
+            state.weweTimer += dt;
+            if (state.weweTimer > 35.0) {
+                state.weweTimer = 0;
+                state.weweActive = true;
+                const toast = document.getElementById('radio-toast');
+                toast.style.display = 'block';
+                sfx.playRadioStatic(3.5);
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                    state.weweActive = false;
+                }, 7000);
+            }
+
+            // If player opens door while Wewe Gombel is mimicking outside!
+            if (state.weweActive && !state.isDoorClosed && Math.random() < 0.02) {
+                triggerJumpscare('kuntilanak', 'BISIKAN WEWE GOMBEL!', 'Kamu tertipu oleh suara radio dan membuka pintu di malam gulita!');
+                return;
+            }
+
+            // Bulb flickering effect
+            if (state.isGeneratorOk) {
+                bulbLight.intensity = 1.6 + Math.sin(performance.now() * 0.015) * 0.2 + (Math.random() < 0.03 ? -0.8 : 0);
+            }
+        }
+
+        // RENDER ANIMATION LOOP
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000.0;
+            lastTime = now;
+
+            gameUpdate(dt);
+
+            // Smooth camera look lerp
+            camera.rotation.y += (targetRotY - camera.rotation.y) * 0.12;
+            camera.rotation.x += (targetRotX - camera.rotation.x) * 0.12;
+
+            // Flashlight target follows camera forward vector
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            flashLight.target.position.copy(camera.position).add(forward.multiplyScalar(10));
+
+            renderer.render(scene, camera);
+            renderCctvFeed();
+        }
+
+        animate();
+
+        // RESIZE HANDLER
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

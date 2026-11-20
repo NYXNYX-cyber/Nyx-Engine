@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unity MCP One-Click Tunnel // Spark Studios</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0d14; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px 16px; line-height: 1.6; }
+    .container { max-width: 600px; margin: 0 auto; }
+    .badge { font-size: 11px; font-weight: 700; color: #f59e0b; letter-spacing: 2px; font-family: monospace; margin-bottom: 8px; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; color: #f8fafc; }
+    .sub { font-size: 14px; color: #94a3b8; margin-bottom: 24px; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .step-num { font-size: 11px; font-weight: 800; color: #10b981; font-family: monospace; margin-bottom: 6px; }
+    .step-title { font-size: 16px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; }
+    .btn { display: inline-block; background: #f59e0b; color: #0a0d14; font-weight: 700; font-size: 14px; text-decoration: none; padding: 12px 24px; border-radius: 8px; transition: all 0.2s; margin-top: 10px; text-align: center; width: 100%; }
+    .btn:hover { background: #fbbf24; }
+    .code-box { background: #0a0d14; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; font-size: 12px; color: #38bdf8; font-family: monospace; word-break: break-all; margin-top: 8px; }
+    .status-pill { display: inline-block; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">// SPARK STUDIOS NETWORKING</div>
+    <h1>Unity MCP One-Click Tunnel</h1>
+    <div class="sub">Hubungkan Unity MCP di laptop Windows-mu ke Veronika di server secara instan, aman, dan tanpa repot setting router:</div>
+
+    <div class="status-pill">● Endpoint Siap: https://unity.nyxstudios.site</div>
+
+    <div class="card">
+      <div class="step-num">CARA 1: ONE-CLICK BATCH FILE (PALING MUDAH)</div>
+      <div class="step-title">1. Unduh & Jalankan Script</div>
+      <p style="font-size: 13px; color: #94a3b8;">Klik tombol di bawah untuk mendownload file <code>start-unity-tunnel.bat</code> ke laptopmu, lalu klik 2x (Run) file tersebut:</p>
+      <a href="/start-unity-tunnel.bat" download class="btn">⚡ Download start-unity-tunnel.bat</a>
+      <p style="font-size: 12px; color: #64748b; margin-top: 10px;"><i>Script akan otomatis mendownload engine Cloudflared dan langsung menghubungkan port 8080 laptopmu ke domain terenkripsi HTTPS.</i></p>
+    </div>
+
+    <div class="card">
+      <div class="step-num">CARA 2: VIA POWERSHELL / CMD (JIKA INGIN MANUAL)</div>
+      <div class="step-title">Jalankan 1 Baris Command Ini di PowerShell</div>
+      <p style="font-size: 13px; color: #94a3b8;">Buka PowerShell di laptopmu, lalu copy-paste perintah ini:</p>
+      <div class="code-box">irm https://engine.nyxstudios.site/start-unity-tunnel.bat -OutFile run.bat; .\run.bat</div>
+    </div>
+
+    <div class="card" style="border-color: rgba(245, 158, 11, 0.3);">
+      <div class="step-title" style="color: #f59e0b;">Target Endpoint Veronika:</div>
+      <div style="font-size: 13px; color: #cbd5e1; font-family: monospace;">
+        Domain: https://unity.nyxstudios.site<br>
+        Lokal : http://localhost:8080 (Unity MCP)
+      </div>
+    </div>
+  </div>
+</body>
+</html>
